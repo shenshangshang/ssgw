@@ -1,0 +1,25 @@
+services:
+  ssgw:
+    build: .
+    image: ssgw:latest
+    container_name: ssgw
+    restart: unless-stopped
+    working_dir: /app
+    command: node src/server.js
+    environment:
+      - SSGW_PORT=8080
+      - SSGW_ADMIN_USER=${SSGW_ADMIN_USER}
+      - SSGW_ADMIN_PASS=${SSGW_ADMIN_PASS}
+      - SSGW_CREDENTIAL_KEY=${SSGW_CREDENTIAL_KEY}
+      - SSGW_DB_URL=${SSGW_DB_URL}
+      - SSGW_NTFY_URL=${SSGW_NTFY_URL}
+      - SSGW_NTFY_AUTH=${SSGW_NTFY_AUTH}
+    ports:
+      - "3061:8080"
+    volumes:
+      - ./src:/app/src:ro
+      - ./public:/app/public:ro
+      - ./data:/app/data
+      - ./node_modules:/app/node_modules:ro
+    extra_hosts:
+      - "host.docker.internal:host-gateway"

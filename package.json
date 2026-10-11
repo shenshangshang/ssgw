@@ -1,0 +1,15 @@
+{
+  "name": "ssgw",
+  "version": "1.0.0",
+  "description": "替代 1Panel ai-gateway + aigw-enhance 前置代理的统一网关服务。",
+  "main": "migrate-from-aigw.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "pg": "^8.23.0"
+  }
+}

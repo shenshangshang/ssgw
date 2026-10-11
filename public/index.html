@@ -1,0 +1,1893 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>神殇AI网关</title>
+<link rel="icon" type="image/svg+xml" href="/logo.svg">
+<style>
+/* 设计系统（ui-ux-pro-max：Data-Dense Dashboard / Blue #1E40AF + Amber #D97706）*/
+:root{
+  --bg:#f8fafc; --panel:#ffffff; --border:#e2e8f0; --border-strong:#cbd5e1;
+  --text:#0f172a; --muted:#64748b; --accent:#1e40af; --accent-hover:#1b3a9e; --accent-weak:#dbeafe;
+  --accent2:#3b82f6; --highlight:#d97706;
+  --ok:#047857; --ok-weak:#d1fae5; --warn:#b45309; --warn-weak:#fef3c7; --err:#b91c1c; --err-weak:#fee2e2;
+  --radius:8px; --shadow:0 1px 2px rgba(15,23,42,.05),0 4px 12px rgba(15,23,42,.05);
+  --speed:.18s;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+  background:var(--bg);color:var(--text);font-size:14px;line-height:1.55;-webkit-font-smoothing:antialiased}
+a{color:var(--accent);text-decoration:none;cursor:pointer}
+a:hover{text-decoration:underline}
+:focus-visible{outline:2px solid var(--accent2);outline-offset:2px}
+.layout{display:flex;min-height:100vh}
+/* 侧栏 */
+aside{width:216px;background:var(--panel);border-right:1px solid var(--border);display:flex;flex-direction:column;position:fixed;height:100vh;z-index:20}
+.brand{display:flex;align-items:center;gap:10px;padding:18px 18px 16px;border-bottom:1px solid var(--border)}
+.brand-logo{width:30px;height:30px;border-radius:8px;background:linear-gradient(135deg,#1e40af,#3b82f6);color:#fff;
+  display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px}
+.brand-name{font-weight:600;font-size:15px;letter-spacing:-.01em}
+.brand-sub{font-size:11px;color:var(--muted)}
+nav{flex:1;padding:10px 8px;overflow-y:auto}
+nav a{display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:6px;color:#475569;font-size:13.5px;margin-bottom:2px;transition:background var(--speed),color var(--speed)}
+nav a:hover{background:#eef2f7;color:var(--text);text-decoration:none}
+nav a.active{background:var(--accent-weak);color:var(--accent);font-weight:600}
+nav svg{width:16px;height:16px;flex-shrink:0;stroke:currentColor;fill:none;stroke-width:1.7}
+.side-foot{border-top:1px solid var(--border);padding:12px 16px;display:flex;align-items:center;justify-content:space-between;font-size:13px}
+/* 主区 */
+main{flex:1;margin-left:216px;padding:0 24px 32px;max-width:1400px}
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:18px 0 14px}
+.topbar h1{font-size:18px;font-weight:700;letter-spacing:-.01em}
+.topbar .actions{display:flex;gap:8px;align-items:center}
+/* 卡片 */
+.card{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);margin-bottom:16px}
+.card-head{padding:13px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.card-head h2{font-size:14.5px;font-weight:600}
+.card-body{padding:16px 18px}
+.grid{display:grid;gap:14px}
+.grid-4{grid-template-columns:repeat(auto-fit,minmax(200px,1fr))}
+.grid-2{grid-template-columns:repeat(auto-fit,minmax(320px,1fr))}
+/* KPI */
+.kpi{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);padding:15px 18px;box-shadow:var(--shadow);transition:border-color var(--speed)}
+.kpi:hover{border-color:var(--border-strong)}
+.kpi .label{color:var(--muted);font-size:12.5px;margin-bottom:8px}
+.kpi .value{font-size:25px;font-weight:700;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.kpi .sub{font-size:12px;color:var(--muted);margin-top:6px}
+.bar{height:6px;border-radius:3px;background:#e8edf3;margin-top:10px;overflow:hidden}
+.bar>i{display:block;height:100%;background:var(--accent2);border-radius:3px;transition:width .3s}
+.bar>i.ok{background:var(--ok)}
+/* 表格 */
+.table-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse}
+th,td{padding:10px 12px;text-align:left;font-size:13px;border-bottom:1px solid var(--border);vertical-align:middle}
+th{color:var(--muted);font-weight:600;background:#f8fafc;white-space:nowrap;font-size:12px;text-transform:none}
+tbody tr{transition:background var(--speed)}
+tbody tr:hover{background:#f1f5f9}
+tbody tr:last-child td{border-bottom:0}
+td{font-variant-numeric:tabular-nums}
+.muted{color:var(--muted)}
+.mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12px}
+.nowrap{white-space:nowrap}
+.empty{color:var(--muted);text-align:center;padding:26px 0!important;font-size:13px}
+.tag{display:inline-flex;align-items:center;padding:1px 8px;border-radius:999px;font-size:11.5px;background:#f1f5f9;color:#475569;line-height:19px;font-weight:500}
+.tag+.tag{margin-left:4px}
+.t-ok{background:var(--ok-weak);color:var(--ok)}
+.t-warn{background:var(--warn-weak);color:var(--warn)}
+.t-err{background:var(--err-weak);color:var(--err)}
+.t-blue{background:var(--accent-weak);color:var(--accent)}
+/* 控件 */
+button{font-family:inherit;font-size:13px;border-radius:6px;border:1px solid var(--border-strong);background:var(--panel);
+  color:var(--text);padding:6px 14px;cursor:pointer;transition:background var(--speed),border-color var(--speed),color var(--speed),box-shadow var(--speed);font-weight:500}
+button:hover{border-color:var(--accent2);color:var(--accent);background:#f8fbff}
+button:active{transform:translateY(0.5px)}
+button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+button.primary:hover{background:var(--accent-hover);border-color:var(--accent-hover);color:#fff}
+button.link{border:0;background:none;color:var(--accent);padding:2px 6px}
+button.link:hover{text-decoration:underline;background:none}
+button.danger{color:var(--err)}
+button.danger:hover{border-color:var(--err);color:var(--err);background:#fff8f8}
+button:disabled{opacity:.45;cursor:not-allowed}
+input,select,textarea{font-family:inherit;font-size:13px;padding:6px 10px;border:1px solid var(--border-strong);
+  border-radius:6px;background:var(--panel);color:var(--text);width:100%;outline:none;transition:border-color var(--speed),box-shadow var(--speed)}
+input:hover,select:hover,textarea:hover{border-color:#94a3b8}
+input:focus,select:focus,textarea:focus{border-color:var(--accent2);box-shadow:0 0 0 3px rgba(59,130,246,.12)}
+input[type=checkbox]{width:auto}
+label.field{display:block;margin-bottom:13px}
+label.field>span{display:block;font-size:12.5px;color:#475569;margin-bottom:5px;font-weight:500}
+label.field>span b{color:var(--err);font-weight:400;margin-right:2px}
+.hint{font-size:12px;color:var(--muted);margin-top:4px}
+code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11.5px;background:#f1f5f9;padding:1px 5px;border-radius:4px}
+.toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:14px}
+.toolbar .grow{flex:1;min-width:150px;max-width:280px}
+/* switch */
+.switch{position:relative;display:inline-block;width:40px;height:22px;flex-shrink:0}
+.switch input{opacity:0;width:0;height:0}
+.slider{position:absolute;inset:0;background:#c9d2dd;border-radius:22px;cursor:pointer;transition:.2s}
+.slider:before{content:"";position:absolute;width:18px;height:18px;left:2px;top:2px;background:#fff;border-radius:50%;transition:.2s;box-shadow:0 1px 2px rgba(0,0,0,.2)}
+.switch input:checked+.slider{background:var(--accent)}
+.switch input:checked+.slider:before{transform:translateX(18px)}
+.switch input:focus-visible+.slider{outline:2px solid var(--accent2);outline-offset:2px}
+/* 抽屉/弹窗 */
+.overlay{position:fixed;inset:0;background:rgba(15,23,42,.4);z-index:50;display:flex;justify-content:flex-end;animation:fade .15s ease}
+@keyframes fade{from{opacity:0}to{opacity:1}}
+.drawer{width:min(680px,94vw);background:var(--panel);height:100%;overflow-y:auto;box-shadow:-4px 0 24px rgba(0,0,0,.12);animation:slide .18s ease}
+@keyframes slide{from{transform:translateX(24px);opacity:.6}to{transform:none;opacity:1}}
+.drawer-head{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;background:var(--panel);z-index:2}
+.drawer-head h3{font-size:15px;font-weight:600}
+.drawer-body{padding:20px}
+.drawer-foot{padding:14px 20px;border-top:1px solid var(--border);display:flex;gap:10px;justify-content:flex-end;position:sticky;bottom:0;background:var(--panel)}
+/* tabs */
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--border);margin-bottom:16px;flex-wrap:wrap}
+.tabs button{border:0;background:none;padding:9px 14px;border-bottom:2px solid transparent;border-radius:0;color:var(--muted)}
+.tabs button:hover{color:var(--text);background:none}
+.tabs button.active{color:var(--accent);border-bottom-color:var(--accent);font-weight:600}
+/* 登录 */
+#login{max-width:380px;margin:11vh auto}
+#login .card-body{padding:26px 26px 22px}
+#login h1{font-size:19px;text-align:center;margin-bottom:4px}
+#login p.sub{text-align:center;color:var(--muted);font-size:13px;margin-bottom:22px}
+/* 分页 */
+.pager{display:flex;align-items:center;justify-content:space-between;padding:12px 18px;border-top:1px solid var(--border);font-size:13px;color:var(--muted)}
+.pager .pages{display:flex;gap:6px;align-items:center}
+.pager button{padding:4px 10px}
+.pager button.active{background:var(--accent-weak);border-color:var(--accent);color:var(--accent);font-weight:500}
+/* toast */
+.toast-wrap{position:fixed;top:18px;right:18px;z-index:99;display:flex;flex-direction:column;gap:8px}
+.toast{background:var(--panel);border:1px solid var(--border);border-left:3px solid var(--accent2);border-radius:6px;
+  padding:10px 16px;box-shadow:0 6px 20px rgba(15,23,42,.12);font-size:13px;max-width:360px;animation:slide .15s ease}
+.toast.err{border-left-color:var(--err)}
+.toast.ok{border-left-color:var(--ok)}
+.disc-item{padding:8px 12px;font-size:12.5px;border-bottom:1px solid var(--border);cursor:pointer;transition:background var(--speed)}
+.disc-item:last-child{border-bottom:0}
+.disc-item:hover{background:var(--accent-weak);color:var(--accent)}
+.empty{padding:44px;text-align:center;color:var(--muted);font-size:13px}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px;vertical-align:middle}
+.chart-tip{position:fixed;z-index:99;background:#0f172a;color:#fff;border-radius:6px;padding:8px 12px;font-size:12px;line-height:1.7;pointer-events:none;display:none;box-shadow:0 4px 14px rgba(15,23,42,.3);white-space:nowrap}
+.chart-legend{display:flex;gap:18px;justify-content:center;font-size:12.5px;color:#475569;margin-bottom:10px;flex-wrap:wrap}
+.spark{display:flex;align-items:flex-end;gap:4px;height:60px;justify-content:center}
+.spark i{flex:1 1 0;max-width:52px;background:var(--accent-weak);border-radius:3px 3px 0 0;min-height:3px;position:relative}
+.spark i.on{background:var(--accent)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+/* 用户中心模型广场卡片 */
+.uc-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px}
+.uc-card{border:1px solid var(--border);border-radius:8px;padding:14px 16px;background:var(--panel);transition:box-shadow var(--speed),border-color var(--speed);cursor:default}
+.uc-card:hover{border-color:#94a3b8;box-shadow:0 2px 10px rgba(15,23,42,.08)}
+.uc-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px}
+.uc-name{font-weight:600;font-size:13.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.uc-ups{display:flex;flex-direction:column;gap:6px}
+.uc-up{display:flex;align-items:center;gap:8px;font-size:12.5px;min-width:0}
+.uc-un{color:var(--text);font-weight:500;white-space:nowrap}
+.uc-mono{font-size:11.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
+.uc-dot{width:8px;height:8px;border-radius:50%;background:#cbd5e1;flex:none}
+.uc-dot.ok{background:var(--ok)}
+.uc-dot.bad{background:var(--err)}
+.chip{display:inline-flex;align-items:center;gap:6px;background:#f1f5f9;border-radius:4px;padding:3px 8px;font-size:12px}
+.chip b{font-weight:500}
+.chip .x{cursor:pointer;color:var(--muted);font-size:14px;line-height:1}
+.chip .x:hover{color:var(--err)}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div class="toast-wrap" id="toasts"></div>
+<script>
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const state = { view: 'overview', csrf: '', user: null, drawer: null, page: {} };
+const ICONS = {
+  overview: '<path d="M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z"/>',
+  accounts: '<path d="M12 3l8 4.5v9L12 21l-8-4.5v-9L12 3z"/><path d="M12 12l8-4.5M12 12v9M12 12L4 7.5"/>',
+  groups: '<circle cx="12" cy="12" r="3"/><circle cx="5" cy="6" r="2.5"/><circle cx="19" cy="6" r="2.5"/><circle cx="5" cy="18" r="2.5"/><circle cx="19" cy="18" r="2.5"/><path d="M7 7.5l3 3M17 7.5l-3 3M7 16.5l3-3M17 16.5l-3-3"/>',
+  users: '<circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.2 2.7-5.5 6-5.5s6 2.3 6 5.5"/><path d="M16 11a3 3 0 100-6M17.5 20c0-2.4-.8-4.2-2-5.4"/>',
+  usergroups: '<path d="M4 20v-1.5A4.5 4.5 0 018.5 14h3A4.5 4.5 0 0116 18.5V20"/><circle cx="10" cy="8" r="3.4"/><path d="M17 14.2a4.5 4.5 0 013 4.3V20"/>',
+  routing: '<circle cx="6" cy="6" r="2.5"/><circle cx="18" cy="6" r="2.5"/><circle cx="12" cy="18" r="2.5"/><path d="M6 8.5v3a3 3 0 003 3h1M18 8.5v3a3 3 0 01-3 3h-1"/>',
+  keys: '<circle cx="8" cy="15" r="3.5"/><path d="M10.5 12.5L20 3M17 6l2 2M14.5 8.5l2 2"/>',
+  logs: '<path d="M5 4h11l3 3v13H5z"/><path d="M8 10h8M8 14h8M8 18h5"/>',
+  usage: '<path d="M4 19V9M10 19V5M16 19v-7M22 19H2"/>',
+  compliance: '<path d="M12 3l7 3v6c0 4-3 7.1-7 8-4-.9-7-4-7-8V6l7-3z"/><path d="M9 12l2 2 4-4"/>',
+  audit: '<path d="M4 6h16M4 10h10M4 14h13M4 18h8"/><circle cx="18.5" cy="15.5" r="3.2"/>',
+  usercenter: '<circle cx="12" cy="8" r="3.5"/><path d="M5 20c0-3.5 3-6 7-6s7 2.5 7 6"/>',
+  decisions: '<path d="M4 19V5"/><path d="M4 15l5-5 4 4 7-8"/>',
+  settings: '<circle cx="12" cy="12" r="3"/><path d="M12 2.5v3M12 18.5v3M4.2 7l2.6 1.5M17.2 15.5L19.8 17M4.2 17l2.6-1.5M17.2 8.5L19.8 7"/>',
+};
+const NAV = [
+  ['overview', '概览'], ['accounts', '上游账号'], ['groups', '模型'], ['users', '用户'],
+  ['usergroups', '用户组'], ['routing', '智能路由'], ['decisions', '决策日志'], ['keys', 'API Keys'],
+  ['logs', '调用日志'], ['usage', '用量统计'], ['settings', '设置'], ['usercenter', '用户中心'],
+];
+const FULL_NAV = NAV;
+
+function toast(msg, kind = '') {
+  const el = document.createElement('div');
+  el.className = 'toast ' + kind;
+  el.textContent = msg;
+  $('#toasts').appendChild(el);
+  setTimeout(() => el.remove(), 3200);
+}
+function esc(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+function copyText(t) {
+  const done = () => toast('已复制');
+  if (navigator.clipboard?.writeText) navigator.clipboard.writeText(t).then(done, () => fallbackCopy(t, done));
+  else fallbackCopy(t, done);
+}
+function fallbackCopy(t, done) {
+  const ta = document.createElement('textarea'); ta.value = t; ta.style.position = 'fixed'; ta.style.opacity = '0';
+  document.body.appendChild(ta); ta.select();
+  try { document.execCommand('copy'); done(); } catch { toast('复制失败', 'err'); }
+  ta.remove();
+}
+function fmtNum(n) { n = Number(n || 0); return n >= 1e9 ? (n / 1e9).toFixed(1) + 'B' : n >= 1e6 ? (n / 1e6).toFixed(1) + 'M' : n >= 1e3 ? (n / 1e3).toFixed(1) + 'K' : String(n); }
+function fmtTime(s) { if (!s) return '-'; const d = new Date(s); return isNaN(d) ? '-' : d.toLocaleString('zh-CN', { hour12: false }); }
+// 时长显示：>=1s 用秒（保留1位小数），否则用 ms
+function fmtDur(ms) { ms = Number(ms || 0); if (!ms) return '-'; return ms >= 1000 ? (ms / 1000).toFixed(ms >= 10000 ? 0 : 1) + 's' : ms + 'ms'; }
+function ago(ms) { if (!ms) return '-'; const d = Date.now() - Number(ms); return d < 60000 ? Math.floor(d / 1000) + 's 前' : d < 3600000 ? Math.floor(d / 60000) + 'm 前' : d < 86400000 ? Math.floor(d / 3600000) + 'h 前' : Math.floor(d / 86400000) + 'd 前'; }
+const healthTag = (h) => h === 'available' ? '<span class="tag t-ok">健康</span>' : h === 'unavailable' ? '<span class="tag t-err">不可用</span>' : h === 'cooldown' ? '<span class="tag t-warn">冷却中</span>' : '<span class="tag">未知</span>';
+
+async function api(method, path, body) {
+  const res = await fetch('/api/v1' + path, {
+    method,
+    headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': state.csrf },
+    credentials: 'same-origin',
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  if (res.status === 401) { state.user = null; state.view = 'login'; render(); throw new Error('请重新登录'); }
+  const text = await res.text();
+  let json = {}; try { json = text ? JSON.parse(text) : {}; } catch { json = { error: text.slice(0, 200) }; }
+  if (!res.ok) throw new Error(json.error?.message || json.error || ('HTTP ' + res.status));
+  return json;
+}
+
+function icon(name) { return `<svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">${ICONS[name] || ''}</svg>`; }
+
+async function render() {
+  const app = $('#app');
+  if (!state.user) {
+    app.innerHTML = `<div id="login"><div class="card">
+      <div class="card-body">
+        <div style="text-align:center;margin-bottom:18px">
+          <img src="/logo.svg" alt="logo" style="width:44px;height:44px;margin:0 auto 10px;display:block">
+          <h1>神殇AI网关</h1><p class="sub">智能路由 / 降级 / 观测</p>
+        </div>
+        <label class="field"><span>用户名</span><input id="lu" value="admin" autocomplete="username"></label>
+        <label class="field"><span>密码</span><input id="lp" type="password" autocomplete="current-password"></label>
+        <button class="primary" style="width:100%;padding:9px" onclick="doLogin()">登 录</button>
+        <div class="hint" style="text-align:center;margin-top:14px" id="lerr"></div>
+      </div></div></div>`;
+    $('#lp').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+    return;
+  }
+  const isAdmin = state.user?.role === 'admin';
+  const navItems = isAdmin ? FULL_NAV : [['usercenter', '用户中心']];
+  if (!isAdmin && !navItems.some(([k]) => k === state.view)) state.view = 'usercenter';
+  app.innerHTML = `<div class="layout">
+    <aside>
+      <div class="brand"><img src="/logo.svg" alt="logo" style="width:30px;height:30px;flex:none"><div><div class="brand-name">神殇AI网关</div><div class="brand-sub">Shenshang AI Gateway</div></div></div>
+      <nav>${navItems.map(([k, n]) => `<a class="${state.view === k ? 'active' : ''}" onclick="go('${k}')">${icon(k)}<span>${n}</span></a>`).join('')}</nav>
+      <div class="side-foot"><span>${esc(state.user.username)}</span><button class="link" onclick="doLogout()">退出</button></div>
+    </aside>
+    <main><div id="view"></div></main>
+  </div>`;
+  const v = $('#view');
+  try {
+    if (state.view === 'overview') await viewOverview(v);
+    else if (state.view === 'accounts') await viewAccounts(v);
+    else if (state.view === 'groups') await viewGroups(v);
+    else if (state.view === 'users') await viewUsers(v);
+    else if (state.view === 'usergroups') await viewUserGroups(v);
+    else if (state.view === 'routing') await viewRouting(v);
+    else if (state.view === 'keys') await viewKeys(v);
+    else if (state.view === 'logs') await viewLogs(v);
+    else if (state.view === 'usage') await viewUsage(v);
+    else if (state.view === 'compliance') await viewCompliance(v);
+    else if (state.view === 'audit') await viewAudit(v);
+    else if (state.view === 'settings') await viewSettings(v);
+    else if (state.view === 'decisions') await viewDecisions(v);
+    else if (state.view === 'usercenter') await viewUserCenter(v);
+  } catch (e) { v.innerHTML = `<div class="card"><div class="empty">${esc(e.message)}</div></div>`; }
+}
+
+function go(v) { state.view = v; state.drawer = null; render(); }
+async function doLogin() {
+  $('#lerr').textContent = '';
+  try {
+    const res = await fetch('/api/v1/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin', body: JSON.stringify({ username: $('#lu').value, password: $('#lp').value }) });
+    const j = await res.json().catch(() => ({}));
+    if (!res.ok) { $('#lerr').textContent = j.error === 'invalid_credentials' ? '用户名或密码错误' : (j.error || '登录失败'); return; }
+    state.csrf = j.csrf; state.user = j.user; state.view = 'overview'; render();
+  } catch (e) { $('#lerr').textContent = e.message; }
+}
+async function doLogout() { await fetch('/api/v1/auth/logout', { method: 'POST', credentials: 'same-origin' }); state.user = null; render(); }
+
+function drawer(title, bodyHtml, footHtml) {
+  return `<div class="overlay" onclick="if(event.target===this)closeDrawer()"><div class="drawer">
+    <div class="drawer-head"><h3>${esc(title)}</h3><button class="link" onclick="closeDrawer()">✕</button></div>
+    <div class="drawer-body">${bodyHtml}</div>
+    ${footHtml ? `<div class="drawer-foot">${footHtml}</div>` : ''}
+  </div></div>`;
+}
+function closeDrawer() { $$('.overlay').forEach(o => o.remove()); }
+function openDrawer(html) { closeDrawer(); const d = document.createElement('div'); d.innerHTML = html; document.body.appendChild(d.firstElementChild); }
+
+/* ============ 概览 ============ */
+let _ovRange = 24;   // 24 = 近24小时，168 = 近7天，720 = 近30天
+async function viewOverview(v) {
+  const query = _ovRange <= 24 ? `hours=${_ovRange}` : `days=${Math.round(_ovRange / 24)}`;
+  const [rt, tr, us] = await Promise.all([
+    api('GET', '/admin/overview/runtime'),
+    api('GET', '/admin/overview/trend?' + query),
+    api('GET', '/admin/usage-statistics?days=' + (_ovRange <= 24 ? 1 : Math.round(_ovRange / 24))),
+  ]);
+  const t = us.totals;
+  const calls = Number(t.calls) || 0, ok = Number(t.ok) || 0, fail = Math.max(0, calls - ok);
+  const total = Number(t.total) || 0, cached = Number(t.cached) || 0;
+  const hitRate = Number(t.input) ? (cached / Number(t.input) * 100) : 0;
+  const okRate = calls ? (ok / calls * 100) : 0;
+  const concurrencyLimit = rt.concurrencyLimit || 0;
+  const rangeLabel = { 24: '近 24 小时', 168: '近 7 天', 720: '近 30 天' }[_ovRange] || '近 24 小时';
+  v.innerHTML = `
+  <div class="topbar"><h1>概览</h1><div class="actions"><button onclick="go('overview')">刷新</button></div></div>
+  <div class="grid grid-2" style="margin-bottom:16px">
+    <div class="kpi"><div class="label">总 Token</div><div class="value">${fmtNum(total)}</div>
+      <div class="sub" style="display:flex;flex-wrap:wrap;gap:14px;margin-top:8px">
+        <span><i class="dot" style="background:#1c6ef2"></i>输入 ${fmtNum(t.input)}</span>
+        <span><i class="dot" style="background:#ed7b2f"></i>输出 ${fmtNum(t.output)}</span>
+        <span><i class="dot" style="background:#8a919f"></i>缓存 ${fmtNum(cached)}</span>
+        <span><i class="dot" style="background:#00a870"></i>缓存命中率 ${hitRate.toFixed(1)}%</span>
+      </div></div>
+    <div class="kpi"><div class="label">请求统计</div>
+      <div class="value">${fmtNum(calls)}</div>
+      <div class="sub" style="display:flex;flex-wrap:wrap;gap:14px;margin-top:8px">
+        <span><i class="dot" style="background:#1f2329"></i>总数 ${fmtNum(calls)}</span>
+        <span><i class="dot" style="background:#00a870"></i>成功 ${fmtNum(ok)}</span>
+        <span><i class="dot" style="background:#e34d59"></i>失败 ${fmtNum(fail)}</span>
+        <span>失败率 ${(calls ? fail / calls * 100 : 0).toFixed(1)}%</span>
+      </div>
+      <div class="bar" style="display:flex;height:6px"><i style="width:${okRate}%;background:var(--ok);border-radius:3px 0 0 3px"></i><i style="width:${100 - okRate}%;background:var(--err);border-radius:0 3px 3px 0"></i></div>
+    </div>
+    <div class="kpi"><div class="label">活跃用户（1h）</div>
+      <div class="grid grid-2" style="margin-top:10px;gap:10px">
+        <div><div class="value" style="font-size:22px">${rt.activeUsers}</div><div class="sub">活跃用户</div></div>
+        <div><div class="value" style="font-size:22px">${rt.apiKeyCount ?? '-'}</div><div class="sub">API Key</div></div>
+      </div></div>
+    <div class="kpi"><div class="label">实时状态</div>
+      <div class="value">${rt.gatewayConcurrency} <span class="muted" style="font-size:14px">${concurrencyLimit ? '/ ' + concurrencyLimit : '并发中'}</span></div>
+      ${concurrencyLimit ? `<div class="bar"><i style="width:${Math.min(100, rt.gatewayConcurrency / concurrencyLimit * 100)}%"></i></div>` : ''}
+      <div class="sub">流式 ${rt.streaming} · 平均耗时 ${fmtDur(tr.days.at(-1)?.avgMs)} · 运行 ${Math.floor(rt.uptimeSec / 86400)}天${Math.floor((rt.uptimeSec % 86400) / 3600)}时</div></div>
+  </div>
+  <div class="card"><div class="card-head"><h2>用量统计</h2>
+    <div class="tabs" style="border:0;margin:0;gap:2px">
+      ${[[24, '近 24 小时'], [168, '近 7 天'], [720, '近 30 天']].map(([r, n]) => `<button class="${_ovRange === r ? 'active' : ''}" style="padding:5px 12px" onclick="_ovRange=${r};render()">${n}</button>`).join('')}
+    </div></div>
+    <div class="card-body">
+      <div class="chart-legend">
+        <span><i class="dot" style="background:#1c6ef2"></i>总 Token</span>
+        <span><i class="dot" style="background:#4f9dff"></i>输入 Token</span>
+        <span><i class="dot" style="background:#ed7b2f"></i>输出 Token</span>
+        <span><i class="dot" style="background:#00a870"></i>缓存 Token</span>
+      </div>
+      <div id="ovChart"></div>
+    </div></div>
+  <div class="grid grid-2" style="margin-bottom:16px">
+    <div class="card"><div class="card-head"><h2>${rangeLabel}模型分布</h2><button class="link" onclick="go('usage')">全部 →</button></div>
+      <table><thead><tr><th>模型</th><th>请求</th><th>Token</th><th>占比</th></tr></thead>
+      <tbody>${(us.byUpstreamModel || us.byModel || []).slice(0, 6).map(m => `<tr><td>${esc(m.request_model || '-')}</td><td>${fmtNum(m.calls)}</td><td>${fmtNum(m.tokens)}</td>
+        <td><div class="bar" style="width:80px"><i style="width:${calls ? Math.min(100, m.calls / calls * 100) : 0}%"></i></div></td></tr>`).join('') || '<tr><td colspan="4" class="empty">该时段暂无调用</td></tr>'}</tbody></table>
+    </div>
+    <div class="card"><div class="card-head"><h2>${rangeLabel}账号分布</h2></div>
+      <table><thead><tr><th>账号</th><th>请求</th><th>Token</th><th>占比</th></tr></thead>
+      <tbody>${(us.byAccount || []).slice(0, 6).map(a => `<tr><td>${esc(a.name)}</td><td>${fmtNum(a.calls)}</td><td>${fmtNum(a.tokens)}</td>
+        <td><div class="bar" style="width:80px"><i style="width:${calls ? Math.min(100, a.calls / calls * 100) : 0}%"></i></div></td></tr>`).join('') || '<tr><td colspan="4" class="empty">该时段暂无调用</td></tr>'}</tbody></table>
+    </div>
+  </div>
+  <div class="card"><div class="card-head"><h2>账号并发与健康</h2><span class="muted" style="font-size:12px">共 ${rt.accounts.length} 个账号</span></div>
+    <table><thead><tr><th>账号</th><th>类型</th><th>优先级</th><th>当前 / 上限</th><th>利用率</th><th>请求数</th><th>健康状态</th></tr></thead>
+    <tbody>${rt.accounts.map(a => {
+      const lim = a.max_concurrency || 0, cur = a.inflight || 0;
+      const pct = lim ? Math.min(100, cur / lim * 100) : 0;
+      const ua = (us.byAccount || []).find(x => String(x.id ?? x.upstream_account_id) === String(a.id));
+      return `<tr><td><b>${esc(a.name)}</b>${a.enabled ? '' : ' <span class="tag t-warn">已停用</span>'}</td>
+        <td class="muted">${esc({ text: '文本', embedding: '向量', image: '生图' }[a.protocol_type] || a.protocol_type)}</td>
+        <td>${a.priority}</td><td>${cur} / ${lim || '∞'}</td>
+        <td><div style="display:flex;align-items:center;gap:8px"><div class="bar" style="flex:1;margin:0"><i style="width:${pct}%"></i></div><span class="muted" style="font-size:12px">${pct.toFixed(0)}%</span></div></td>
+        <td class="muted">${ua ? fmtNum(ua.calls) : '-'}</td>
+        <td>${healthTag(a.health_status)}</td></tr>`; }).join('')}</tbody></table>
+  </div>`;
+  renderChart($('#ovChart'), tr.days, tr.granularity);
+}
+
+// 多序列折线图（内联 SVG，无外部依赖）
+function renderChart(el, rows, granularity) {
+  if (!el) return;
+  // 补全空桶到当前时间，避免"最后一格停在过去"
+  if (rows && rows.length) {
+    const full = [];
+    if (granularity === 'hour') {
+      const now = new Date(); now.setMinutes(0, 0, 0);
+      let cur = new Date(rows[0].day + ':00');
+      const map = new Map(rows.map(r => [r.day, r]));
+      while (cur <= now) {
+        const key = cur.toLocaleString('sv-SE', { hour12: false }).slice(0, 13) + ':00';
+        full.push(map.get(key) || { day: key, calls: 0, ok: 0, input: 0, output: 0, tokens: 0, cached: 0, avgMs: 0 });
+        cur = new Date(cur.getTime() + 3600000);
+      }
+    } else {
+      const map = new Map(rows.map(r => [r.day, r]));
+      const start = new Date(rows[0].day + 'T00:00:00');
+      const today = new Date(); today.setHours(0, 0, 0, 0);
+      let cur = start;
+      while (cur <= today) {
+        const key = cur.toLocaleString('sv-SE', { hour12: false }).slice(0, 10);
+        full.push(map.get(key) || { day: key, calls: 0, ok: 0, input: 0, output: 0, tokens: 0, cached: 0, avgMs: 0 });
+        cur = new Date(cur.getTime() + 86400000);
+      }
+    }
+    if (full.length) rows = full;
+  }
+  if (!rows || !rows.length) { el.innerHTML = '<div class="empty">该时段暂无数据</div>'; return; }
+  const W = el.clientWidth || 900, H = 240, PAD = { l: 56, r: 16, t: 12, b: 28 };
+  const iw = W - PAD.l - PAD.r, ih = H - PAD.t - PAD.b;
+  const series = [
+    { key: 'tokens', color: '#1c6ef2', fill: true },
+    { key: 'input', color: '#4f9dff' },
+    { key: 'output', color: '#ed7b2f' },
+    { key: 'cached', color: '#00a870' },
+  ];
+  const max = Math.max(1, ...rows.map(r => r.tokens || 0));
+  const step = rows.length > 1 ? iw / (rows.length - 1) : 0;
+  const X = i => PAD.l + i * step;
+  const Y = val => PAD.t + ih - (val / max) * ih;
+  const lines = series.map(s => {
+    const pts = rows.map((r, i) => `${X(i).toFixed(1)},${Y(r[s.key] || 0).toFixed(1)}`);
+    const poly = `<polyline fill="none" stroke="${s.color}" stroke-width="1.8" stroke-linejoin="round" points="${pts.join(' ')}"/>`;
+    const area = s.fill ? `<polygon fill="${s.color}" fill-opacity="0.08" points="${PAD.l},${Y(0)} ${pts.join(' ')} ${X(rows.length - 1).toFixed(1)},${Y(0)}"/>` : '';
+    return area + poly;
+  }).join('');
+  // Y 轴刻度（4 档）+ X 轴时间标签（最多 6 个）
+  const yTicks = [0, 0.5, 1].map(f => {
+    const v = max * f, y = Y(v);
+    return `<line x1="${PAD.l}" y1="${y}" x2="${W - PAD.r}" y2="${y}" stroke="#eef0f3" stroke-width="1"/>
+      <text x="${PAD.l - 8}" y="${y + 4}" text-anchor="end" font-size="11" fill="#8a919f">${fmtNum(Math.round(v))}</text>`;
+  }).join('');
+  const labelEvery = Math.max(1, Math.ceil(rows.length / 6));
+  const xTicks = rows.map((r, i) => i % labelEvery === 0
+    ? `<text x="${X(i).toFixed(1)}" y="${H - 8}" text-anchor="middle" font-size="11" fill="#8a919f">${granularity === 'hour' ? (r.day || '').slice(11) : (r.day || '').slice(5)}</text>`
+    : '').join('');
+  const dataRows = rows;
+  // 每个点的 hover 命中竖条 + 圆点标记（悬停显示该时间点具体用量）
+  const hits = dataRows.map((r, i) => {
+    const x = X(i);
+    return `<g class="ch-hit" data-i="${i}"><rect x="${(x - Math.max(3, step / 2)).toFixed(1)}" y="${PAD.t}" width="${Math.max(6, step).toFixed(1)}" height="${ih}" fill="transparent"/><line x1="${x.toFixed(1)}" y1="${PAD.t}" x2="${x.toFixed(1)}" y2="${PAD.t + ih}" stroke="transparent" stroke-width="1"/></g>`;
+  }).join('');
+  const dots = series.map(ser => dataRows.map((r, i) => `<circle cx="${X(i).toFixed(1)}" cy="${Y(r[ser.key] || 0).toFixed(1)}" r="2.5" fill="${ser.color}" opacity="0">`).join('')).join('');
+  el.innerHTML = `<svg width="100%" height="${H}" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
+    ${yTicks}${lines}${xTicks}${hits}${dots}
+  </svg>`;
+  // hover 交互：tooltip 跟随 + 高亮该列圆点
+  document.querySelectorAll('.chart-tip').forEach(t => t.remove());   // 防重复渲染堆积
+  const tip = document.createElement('div');
+  tip.className = 'chart-tip';
+  document.body.appendChild(tip);
+  const show = (i, ev) => {
+    const r = dataRows[i];
+    if (!r) return;
+    tip.style.display = 'block';
+    tip.innerHTML = `<b>${r.day}</b><br>请求 ${fmtNum(r.calls)}（成功 ${fmtNum(r.ok)}）<br>总 Token ${fmtNum(r.tokens)}<br>输入 ${fmtNum(r.input)} · 输出 ${fmtNum(r.output)}<br>缓存 ${fmtNum(r.cached)} · 平均 ${fmtDur(r.avgMs)}`;
+    const pad = 14;
+    let tx = ev.clientX + pad, ty = ev.clientY + pad;
+    if (tx + tip.offsetWidth > innerWidth - 8) tx = ev.clientX - tip.offsetWidth - pad;
+    if (ty + tip.offsetHeight > innerHeight - 8) ty = ev.clientY - tip.offsetHeight - pad;
+    tip.style.left = tx + 'px'; tip.style.top = ty + 'px';
+    svg.querySelectorAll('circle').forEach(c => { c.setAttribute('opacity', '0'); });
+    series.forEach((ser, si) => {
+      const c = svg.querySelectorAll('circle');
+      const base = dataRows.length * si + i;
+      if (c[base]) c[base].setAttribute('opacity', '1');
+    });
+  };
+  const hide = () => { tip.style.display = 'none'; svg.querySelectorAll('circle').forEach(c => c.setAttribute('opacity', '0')); };
+  const svg = el.querySelector('svg');
+  svg.querySelectorAll('.ch-hit').forEach(g => {
+    g.addEventListener('mousemove', e => show(Number(g.dataset.i), e));
+    g.addEventListener('mouseleave', hide);
+  });
+}
+/* ============ 上游账号 ============ */
+async function viewAccounts(v) {
+  const r = await api('GET', '/admin/upstream-accounts');
+  const providers = Object.fromEntries(Object.entries(PROVIDERS).map(([k, [l]]) => [k, l]));
+  providers.custom = '自定义';
+  const kindName = { text: '文本', embedding: '向量', image: '生图' };
+  // 账号可合并多类别：按模型名推导该账号实际承担的类别（与后端 Engine.modelKind 同规则）
+  const KINDS = { rerank: '重排', embedding: '向量', image: '生图', text: '文本' };
+  function accountKinds(a) {
+    const k = new Set();
+    for (const m of a.models || []) {
+      const n = String(m.request_model_name).toLowerCase();
+      if (n.includes('rerank') || n.includes('bge-reranker')) k.add('rerank');
+      else if (n.includes('embed') || n.includes('bge-m3') || n.includes('gte-') || n.includes('e5-')) k.add('embedding');
+      else if (n.includes('image') || n.includes('flux') || n.includes('sd3') || n.includes('cogview')) k.add('image');
+      else k.add('text');
+    }
+    return k.size ? [...k].map(x => KINDS[x]) : [kindName[a.protocol_type] || a.protocol_type];
+  }
+  v.innerHTML = `
+  <div class="topbar"><h1>上游账号</h1><div class="actions">
+    <button class="primary" onclick="editAccount()">添加账号</button></div></div>
+  <div class="toolbar">
+    <input class="grow" id="acFilter" placeholder="搜索名称 / Base URL" oninput="filterAccounts()">
+    <select style="width:auto" id="acStatus" onchange="filterAccounts()"><option value="">全部状态</option><option value="available">健康</option><option value="unavailable">不可用</option></select>
+    <span class="muted" style="font-size:12.5px">共 ${r.total} 个账号</span>
+  </div>
+  <div class="card"><table id="acTable"><thead><tr>
+    <th>名称</th><th>供应商</th><th>协议类型</th><th>Base URL</th><th>模型映射</th><th>优先级</th><th>并发</th><th>健康</th><th>启用</th><th style="width:180px">操作</th>
+  </tr></thead><tbody>
+  ${r.accounts.map(a => `<tr data-name="${esc(a.name)} ${esc(a.service_base_url)}" data-status="${esc(a.health_status)}">
+    <td><b>${esc(a.name)}</b>${a.note ? `<div class="hint">${esc(a.note)}</div>` : ''}</td>
+    <td class="muted">${esc(providers[a.provider] || a.provider)}</td>
+    <td>${accountKinds(a).map(k => `<span class="tag t-blue">${esc(k)}</span>`).join('')}</td>
+    <td class="mono muted">${esc(a.service_base_url)}</td>
+    <td>${(() => {
+      const ms = a.models || [];
+      // 有显式类型时按类型分组计数，否则展示前几个模型名
+      const typed = ms.filter(m => m.model_type);
+      if (typed.length) {
+        const cnt = {};
+        for (const m of typed) cnt[m.model_type] = (cnt[m.model_type] || 0) + 1;
+        const auto = ms.length - typed.length;
+        return ms.length + ' 个<div class="hint">' + Object.entries(cnt).map(([k, n]) => `<span class="tag">${({ text: '文本', embedding: '向量', image: '生图', rerank: '重排' }[k] || k) + ' ' + n}</span>`).join(' ') + (auto ? ` <span class="tag">自动 ${auto}</span>` : '') + '</div>';
+      }
+      return ms.length + ' 个<div class="hint">' + esc(ms.slice(0, 2).map(m => m.request_model_name).join(', ')) + (ms.length > 2 ? ' …' : '') + '</div>';
+    })()}</td>
+    <td>${a.priority}</td><td>${a.max_concurrency || '∞'}</td>
+    <td>${healthTag(a.health_status)}</td>
+    <td><label class="switch"><input type="checkbox" ${a.enabled ? 'checked' : ''} onchange="toggleAccount(${a.id}, this.checked)"><span class="slider"></span></label></td>
+    <td class="nowrap">
+      <button class="link" onclick="testAccount(${a.id},'${esc(a.name)}')">测试</button>
+      <button class="link" onclick="queryBalance(${a.id},'${esc(a.name)}')">余额</button>
+      <button class="link" onclick="editAccount(${a.id})">编辑</button>
+      <button class="link danger" onclick="delAccount(${a.id},'${esc(a.name)}')">删除</button></td>
+  </tr>`).join('')}</tbody></table></div>`;
+}
+function filterAccounts() {
+  const kw = ($('#acFilter').value || '').toLowerCase(), st = $('#acStatus').value;
+  $$('#acTable tbody tr').forEach(tr => {
+    const okKw = !kw || tr.dataset.name.toLowerCase().includes(kw);
+    const okSt = !st || tr.dataset.status === st;
+    tr.style.display = okKw && okSt ? '' : 'none';
+  });
+}
+async function queryBalance(id, name) {
+  try {
+    const r = await api('GET', `/admin/upstream-accounts/${id}/balance`);
+    if (!r.supported) { toast(r.error || '不支持余额查询', 'err'); return; }
+    if (r.amount == null) { toast(`${name}：余额查询失败（接口无数据）`, 'err'); return; }
+    toast(`${name} 余额：¥${Number(r.amount).toFixed(2)}（${r.latencyMs}ms）`, 'ok');
+  } catch (e) { toast(`${name}：${e.message}`, 'err'); }
+}
+async function toggleAccount(id, enabled) {
+  try { await api('POST', `/admin/upstream-accounts/${id}/${enabled ? 'enable' : 'disable'}`); toast(enabled ? '已启用' : '已停用', 'ok'); }
+  catch (e) { toast(e.message, 'err'); }
+}
+async function testAccount(id, name) {
+  toast('正在测试 ' + name + ' …');
+  try {
+    const r = await api('POST', `/admin/upstream-accounts/${id}/test-model`, {});
+    toast(`${name}：${r.upstreamModelName}（${r.kind}） ${r.latencyMs}ms ✓`, 'ok');
+  } catch (e) { toast(`${name} 测试失败：${e.message}`, 'err'); }
+  state.view = 'accounts'; render();
+}
+async function delAccount(id, name) {
+  if (!confirm(`确认删除账号「${name}」？该账号的模型映射与协议配置会一并删除。`)) return;
+  try { await api('DELETE', `/admin/upstream-accounts/${id}`); toast('已删除', 'ok'); render(); } catch (e) { toast(e.message, 'err'); }
+}
+// 供应商预设表（对齐 aigw）：value -> [显示名, 默认 Base URL, 默认上游协议]
+const PROVIDERS = {
+  custom: ['自定义', '', 'openaiChatCompletions'],
+  vllm: ['vLLM', 'http://localhost:8000/v1', 'openaiChatCompletions'],
+  ollama: ['Ollama', 'http://localhost:11434/v1', 'openaiChatCompletions'],
+  deepseek: ['DeepSeek', 'https://api.deepseek.com/v1', 'openaiChatCompletions'],
+  tencent: ['腾讯云 TokenHub', 'https://tokenhub.tencentmaas.com/v1', 'openaiChatCompletions'],
+  alibaba: ['阿里云百炼', 'https://dashscope.aliyuncs.com/compatible-mode/v1', 'openaiChatCompletions'],
+  baidu: ['百度智能云千帆', 'https://qianfan.baidubce.com/v2', 'openaiChatCompletions'],
+  siliconflow: ['硅基流动', 'https://api.siliconflow.cn/v1', 'openaiChatCompletions'],
+  volcengine: ['火山引擎方舟', 'https://ark.cn-beijing.volces.com/api/v3', 'openaiChatCompletions'],
+  zhipu: ['智谱 Z.ai', 'https://open.bigmodel.cn/api/paas/v4', 'openaiChatCompletions'],
+  minimax: ['MiniMax（中国）', 'https://api.minimaxi.com/v1', 'openaiChatCompletions'],
+  xiaomi: ['小米', 'https://api.xiaomimimo.com/v1', 'openaiChatCompletions'],
+  kimi: ['Kimi', 'https://api.moonshot.cn/v1', 'openaiChatCompletions'],
+  opencode: ['OpenCode', 'https://opencode.ai/v1', 'openaiChatCompletions'],
+  openai: ['OpenAI', 'https://api.openai.com/v1', 'openaiChatCompletions'],
+  openrouter: ['OpenRouter', 'https://openrouter.ai/api/v1', 'openaiChatCompletions'],
+  anthropic: ['Anthropic', 'https://api.anthropic.com', 'anthropicMessages'],
+  gemini: ['Gemini', 'https://generativelanguage.googleapis.com/v1beta', 'openaiChatCompletions'],
+};
+function onProviderChange() {
+  const v = $('#f_provider').value;
+  const preset = PROVIDERS[v];
+  const urlInput = $('#f_url'), nameWrap = $('#f_custom_name_wrap');
+  if (v === 'custom') {
+    urlInput.value = urlInput.dataset.orig || 'https://';
+    urlInput.readOnly = false;
+    if (nameWrap) nameWrap.style.display = '';
+  } else {
+    if (!urlInput.dataset.orig) urlInput.dataset.orig = urlInput.value;
+    urlInput.value = preset[1];
+    urlInput.readOnly = false;   // 预填可改（供应商可能有代理/中转）
+    if (nameWrap) nameWrap.style.display = 'none';
+  }
+}
+async function editAccount(id) {
+  const a = id ? await api('GET', `/admin/upstream-accounts/${id}`) : { name: '', provider: 'custom', protocol_type: 'text', service_base_url: 'https://', priority: 0, max_concurrency: 0, validation_model: '', note: '', models: [], protocols: [{ protocol: 'openaiChatCompletions', route: '/v1', auth_mode: 'bearer' }] };
+  const PROTO = { openaiChatCompletions: 'OpenAI Chat Completions', openaiEmbeddings: 'OpenAI Embeddings', openaiImages: 'OpenAI Images', anthropicMessages: 'Anthropic Messages' };
+  openDrawer(drawer(id ? '编辑账号 · ' + a.name : '添加账号', `
+    <label class="field"><span><b>*</b>名称</span><input id="f_name" value="${esc(a.name)}" placeholder="如 闲鱼、硅基流动"></label>
+    <div class="grid grid-2">
+      <label class="field"><span>供应商</span><select id="f_provider" onchange="onProviderChange()">
+        ${Object.entries(PROVIDERS).map(([k, [label]]) => `<option value="${k}" ${a.provider === k ? 'selected' : ''}>${label}</option>`).join('')}
+        ${!PROVIDERS[a.provider] ? `<option value="${esc(a.provider)}" selected>${esc(a.provider)}（当前值）</option>` : ''}</select></label>
+      <label class="field" id="f_custom_name_wrap" style="${PROVIDERS[a.provider] ? 'display:none' : ''}"><span>自定义供应商名称</span><input id="f_custom_provider" value="${esc(PROVIDERS[a.provider] ? '' : a.provider)}" placeholder="如 闲鱼、OpenRouter 中转">
+        <div class="hint">选「自定义」时可填写自己的供应商名，显示在账号列表</div></label>
+      <label class="field"><span>协议类型（仅展示，类别由模型名判定）</span><select id="f_ptype">
+        ${[['text', '文本'], ['embedding', '向量'], ['image', '生图']].map(([k, n]) => `<option value="${k}" ${a.protocol_type === k ? 'selected' : ''}>${n}</option>`).join('')}</select></label>
+    </div>
+    <label class="field"><span><b>*</b>Base URL</span><input id="f_url" value="${esc(a.service_base_url)}" placeholder="https://api.example.com/v1">
+      <div class="hint">含版本前缀，如 https://api.siliconflow.cn/v1</div></label>
+    <label class="field"><span>凭据（留空表示保持原值）</span><input id="f_cred" type="password" placeholder="${a.credential_mask ? '当前 ' + esc(a.credential_mask) : 'sk-...'}"></label>
+    <div class="grid grid-2">
+      <label class="field"><span>优先级（越大越优先）</span><input id="f_priority" type="number" value="${a.priority ?? 0}"></label>
+      <label class="field"><span>最大并发（0 = 不限）</span><input id="f_conc" type="number" value="${a.max_concurrency ?? 0}"></label>
+    </div>
+    <label class="field"><span>探测模型（健康检查用）</span><input id="f_valmodel" value="${esc(a.validation_model || '')}" placeholder="如 glm-5.3"></label>
+    <label class="field"><span>上游协议</span><select id="f_proto">
+      <option value="openaiChatCompletions" ${!(a.protocols?.[0]?.protocol === 'anthropicMessages') ? 'selected' : ''}>OpenAI Chat Completions</option>
+      <option value="anthropicMessages" ${a.protocols?.[0]?.protocol === 'anthropicMessages' ? 'selected' : ''}>Anthropic Messages（协议转换）</option>
+    </select>
+    <div class="hint">Anthropic Messages 时请求会被转换为 <code>/v1/messages</code> 格式（system 提取、tool_calls↔tool_use、流式事件双向转换），鉴权用 <code>x-api-key</code></div></label>
+    <label class="field"><span>模型映射（每行一个模型，可单独指定类别）</span>
+      <div style="display:flex;gap:8px;margin-bottom:8px">
+        <input id="f_newmodel" placeholder="新增模型：请求名 或 请求名=上游名" onkeydown="if(event.key==='Enter'){event.preventDefault();addAcModelRow();}">
+        <button type="button" onclick="addAcModelRow()">添加</button>
+        <button type="button" onclick="discoverModels(${id || 0})">发现模型</button>
+      </div>
+      <div id="f_model_rows" style="border:1px solid var(--border);border-radius:6px;max-height:340px;overflow-y:auto">
+        <table style="margin:0"><thead><tr><th>请求名</th><th>上游名</th><th style="width:90px">优先级</th><th style="width:110px">模型类型</th><th style="width:50px"></th></tr></thead>
+        <tbody id="f_model_tbody"></tbody></table>
+      </div>
+      <div class="hint">类别留空 = 按模型名自动判定（含 embed/rerank/flux 等关键词走对应端点）；显式指定优先。「发现模型」从上游 /models 拉取并自动按名称预填类别。</div></label>
+    <label class="field"><span>备注</span><input id="f_note" value="${esc(a.note || '')}"></label>
+  `, `<button onclick="closeDrawer()">取消</button><button class="primary" onclick="saveAccount(${id || 0})">保存</button>`));
+  const KIND_OPTS = [['', '自动'], ['text', '文本'], ['image', '生图'], ['embedding', '向量'], ['rerank', '重排']];
+  const tbody = $('#f_model_tbody');
+  const kindOf = (m) => {
+    const n = String(m.request_model_name || '').toLowerCase();
+    if (/(rerank|bge-reranker)/.test(n)) return 'rerank';
+    if (/(embed|bge-m3|gte-|e5-|jina-embed|minlm)/.test(n)) return 'embedding';
+    if (/(image|flux|sd3|stable-diffusion|cogview|dall-e|wanx|seedream)/.test(n)) return 'image';
+    return 'text';
+  };
+  for (const m of (a.models || [])) {
+    const tr = document.createElement('tr');
+    const type = m.model_type || '';
+    tr.innerHTML = `
+      <td><input class="mr_req" value="${esc(m.request_model_name)}" style="min-width:180px"></td>
+      <td><input class="mr_up" value="${esc(m.upstream_model_name)}" style="min-width:180px"></td>
+      <td><input class="mr_prio" type="number" value="${m.priority ?? ''}" placeholder="默认" title="越大越优先；留空=跟随账号优先级" style="width:80px"></td>
+      <td><select class="mr_type">${KIND_OPTS.map(([k, n]) => `<option value="${k}" ${type === k ? 'selected' : ''}>${n}</option>`).join('')}</select></td>
+      <td><button type="button" class="link danger" onclick="this.closest('tr').remove()">✕</button></td>`;
+    tr.dataset.autoKind = kindOf(m);
+    tbody.appendChild(tr);
+  }
+}
+function acModelRow(requestName, upstreamName, type) {
+  const KIND_OPTS = [['', '自动'], ['text', '文本'], ['image', '生图'], ['embedding', '向量'], ['rerank', '重排']];
+  const tr = document.createElement('tr');
+  tr.innerHTML = `
+    <td><input class="mr_req" value="${esc(requestName)}" style="min-width:180px"></td>
+    <td><input class="mr_up" value="${esc(upstreamName)}" style="min-width:180px"></td>
+    <td><input class="mr_prio" type="number" placeholder="默认" title="越大越优先；留空=跟随账号优先级" style="width:80px"></td>
+    <td><select class="mr_type">${KIND_OPTS.map(([k, n]) => `<option value="${k}" ${type === k ? 'selected' : ''}>${n}</option>`).join('')}</select></td>
+    <td><button type="button" class="link danger" onclick="this.closest('tr').remove()">✕</button></td>`;
+  $('#f_model_tbody').appendChild(tr);
+}
+function addAcModelRow() {
+  const raw = $('#f_newmodel').value.trim();
+  if (!raw) return;
+  const i = raw.indexOf('=');
+  const req = i < 0 ? raw : raw.slice(0, i).trim();
+  const up = i < 0 ? raw : raw.slice(i + 1).trim();
+  if ($$('#f_model_tbody .mr_req').some(x => x.value.trim() === req)) { toast('该请求名已存在', 'err'); return; }
+  // 新增行按名称预填类别（与后端推断一致），用户可改
+  const n = req.toLowerCase();
+  const t = /(rerank|bge-reranker)/.test(n) ? 'rerank' : /(embed|bge-m3|gte-|e5-|jina-embed)/.test(n) ? 'embedding' : /(image|flux|sd3|cogview|dall-e|wanx|seedream)/.test(n) ? 'image' : 'text';
+  acModelRow(req, up || req, t);
+  $('#f_newmodel').value = '';
+}
+async function discoverModels(id) {
+  if (!id) { toast('请先保存账号后再发现模型', 'err'); return; }
+  toast('正在从上游拉取模型列表…');
+  try {
+    const r = await api('GET', '/admin/upstream-accounts/discover-models?accountId=' + id);
+    const existing = new Set($$('#f_model_tbody .mr_req').map(x => x.value.trim()));
+    let added = 0;
+    for (const m of r.models || []) {
+      if (existing.has(m)) continue;
+      const n = m.toLowerCase();
+      const t = /(rerank|bge-reranker)/.test(n) ? 'rerank' : /(embed|bge-m3|gte-|e5-|jina-embed)/.test(n) ? 'embedding' : /(image|flux|sd3|cogview|dall-e|wanx|seedream)/.test(n) ? 'image' : 'text';
+      acModelRow(m, m, t);
+      existing.add(m); added++;
+    }
+    toast(`发现 ${r.models?.length || 0} 个模型，新增 ${added} 行`, 'ok');
+  } catch (e) { toast('发现失败：' + e.message, 'err'); }
+}
+async function saveAccount(id) {
+  const models = $$('#f_model_tbody tr').map(tr => ({
+    requestModelName: tr.querySelector('.mr_req').value.trim(),
+    upstreamModelName: tr.querySelector('.mr_up').value.trim() || tr.querySelector('.mr_req').value.trim(),
+    modelType: tr.querySelector('.mr_type').value,
+    priority: (tr.querySelector('.mr_prio')?.value ?? '').trim() === '' ? null : Number(tr.querySelector('.mr_prio').value),
+  })).filter(m => m.requestModelName);
+  const provSel = $('#f_provider').value;
+  const provider = provSel === 'custom'
+    ? (($('#f_custom_provider')?.value || '').trim() || 'custom')
+    : provSel;
+  const body = {
+    name: $('#f_name').value.trim(), provider, protocolType: $('#f_ptype').value,
+    serviceBaseURL: $('#f_url').value.trim(), priority: Number($('#f_priority').value || 0),
+    maxConcurrency: Number($('#f_conc').value || 0), validationModel: $('#f_valmodel').value.trim(),
+    note: $('#f_note').value, models, protocol: $('#f_proto').value,
+  };
+  const cred = $('#f_cred').value;
+  if (cred) body.credential = cred;
+  try {
+    await (id ? api('PUT', `/admin/upstream-accounts/${id}`, body) : api('POST', '/admin/upstream-accounts', body));
+    closeDrawer(); toast('已保存', 'ok'); state.view = 'accounts'; render();
+  } catch (e) { toast(e.message, 'err'); }
+}
+
+/* ============ 模型（网关提供哪些模型） ============ */
+async function viewGroups(v) {
+  const [r, accounts] = await Promise.all([api('GET', '/admin/models'), api('GET', '/admin/upstream-accounts')]);
+  window._modelAccounts = accounts.accounts.map(a => ({ id: a.id, name: a.name, priority: a.priority }));
+  window._allModels = r.models;
+  const typeTag = (t, virt) => t ? `<span class="tag t-blue">${esc({ text: '文本', embedding: '向量', image: '生图', rerank: '重排' }[t] || t)}</span>` : (virt ? '<span class="tag t-blue">虚拟</span>' : '<span class="tag">自动</span>');
+  v.innerHTML = `
+  <div class="topbar"><h1>模型</h1><div class="actions">
+    <button onclick="go('groups')">刷新</button>
+    <button class="primary" onclick="editModel(null)">+ 新建模型</button></div></div>
+  <div class="card"><div class="card-body" style="padding:14px 18px">
+    <div class="hint">网关对外提供的模型及其全部上游。同一模型有多个上游时，默认按<b>账号优先级降级</b>（配额熔断自动切换）；开启「智能路由」后，该模型的请求先按其独立规则匹配（如带图、简单/复杂、关键词），命中则改走规则指定的模型——可在 <a onclick="go('routing')">智能路由</a> 页集中编辑。</div>
+  </div></div>
+  <div class="card">
+    <table><thead><tr><th>模型名</th><th>类别</th><th>上游（账号 · 上游模型 · 优先级）</th><th>智能路由</th><th>操作</th></tr></thead>
+    <tbody>${r.models.map(m => `<tr>
+      <td><b>${esc(m.name)}</b>${m.hidden ? ' <span class="tag t-warn">已隐藏</span>' : ''}</td>
+      <td>${typeTag(m.upstreams[0]?.modelType, m.virtual)}</td>
+      <td>${m.upstreams.map(u => `<div style="display:flex;align-items:center;gap:6px;margin:2px 0">
+        <span class="tag ${u.health === 'available' ? 't-ok' : u.health === 'unavailable' ? 't-err' : ''}">${esc(u.accountName)}</span>
+        <span class="mono muted" style="font-size:11.5px">${esc(u.upstreamModel)}</span>
+        <span class="muted" style="font-size:11.5px">P${u.priority}</span>
+      </div>`).join('')}</td>
+      <td><label class="switch"><input type="checkbox" ${m.smartRoute ? 'checked' : ''} onchange="toggleModelSmart('${esc(m.name)}', this.checked)"><span class="slider"></span></label>
+        <div class="hint">${m.smartRoute ? (m.rules?.length ? m.rules.length + ' 条独立规则' : '未配规则，走全局') : '按优先级降级'}</div></td>
+      <td class="nowrap"><button class="link" onclick="editModel('${esc(m.name)}')">编辑</button>
+        <button class="link" onclick="editModelRules('${esc(m.name)}')">路由规则</button>
+        <button class="link" onclick="toggleModelHidden('${esc(m.name)}', ${m.hidden ? 'false' : 'true'})">${m.hidden ? '取消隐藏' : '隐藏'}</button>
+        <button class="link danger" onclick="delModel('${esc(m.name)}')">删除</button></td>
+    </tr>`).join('')}</tbody></table>
+    <div class="pager"><span>共 ${r.models.length} 个模型</span></div>
+  </div>`;
+}
+async function toggleModelSmart(name, enabled) {
+  try {
+    await api('PUT', '/admin/models/' + encodeURIComponent(name) + '/smart-route', { enabled });
+    toast(enabled ? `${name} 已开启智能路由` : `${name} 已关闭，按优先级降级`, 'ok');
+    render();
+  } catch (e) { toast(e.message, 'err'); render(); }
+}
+async function toggleModelHidden(name, hidden) {
+  try {
+    await api('PUT', '/admin/models/' + encodeURIComponent(name) + '/visibility', { hidden });
+    toast(hidden ? `${name} 已隐藏——不对任何用户开放，模型广场不显示` : `${name} 已恢复开放`, 'ok');
+    render();
+  } catch (e) { toast(e.message, 'err'); }
+}
+async function delModel(name) {
+  if (!confirm(`删除模型「${name}」？将同时移除其全部上游映射与路由规则。`)) return;
+  try { const r = await api('DELETE', '/admin/models/' + encodeURIComponent(name)); toast(`已删除 ${name}（${r.mappings} 条映射）`, 'ok'); render(); }
+  catch (e) { toast(e.message, 'err'); }
+}
+// 映射行（模型编辑抽屉里）
+function mpRow(mp = {}) {
+  const accts = window._modelAccounts || [];
+  return `<tr>
+    <td><select class="mp_acct">${accts.map(a => `<option value="${a.id}" ${String(mp.accountId) === String(a.id) ? 'selected' : ''}>${esc(a.name)}（P${a.priority}）</option>`).join('')}</select></td>
+    <td><input class="mp_up" value="${esc(mp.upstreamModel || '')}" placeholder="上游模型名（可点发现）"></td>
+    <td><input class="mp_prio" type="number" value="${mp.priority ?? ''}" placeholder="默认" title="越大越优先；留空=跟随账号优先级" style="width:80px"></td>
+    <td><select class="mp_type">${['text', 'embedding', 'image', 'rerank'].map(t => `<option value="${t}" ${mp.modelType === t ? 'selected' : ''}>${({ text: '文本', embedding: '向量', image: '生图', rerank: '重排' })[t]}</option>`).join('')}</select></td>
+    <td><button class="link danger" onclick="this.closest('tr').remove()">✕</button></td>
+  </tr>`;
+}
+function addMpRow() {
+  const tb = $('#mp_body');
+  tb.insertAdjacentHTML('beforeend', mpRow());
+}
+async function discoverInto(btn) {
+  // 暂存当前编辑抽屉的表单值（openDrawer 是替换式的，选完要重建）
+  const rows = [...document.querySelectorAll('#mp_body tr')];
+  if (!rows.length) { toast('请先添加一条映射行', 'err'); return; }
+  window._mpDraft = {
+    name: $('#md_name')?.value || '',
+    rows: rows.map(tr => ({
+      accountId: tr.querySelector('.mp_acct').value,
+      upstreamModel: tr.querySelector('.mp_up').value,
+      modelType: tr.querySelector('.mp_type').value,
+      priority: (tr.querySelector('.mp_prio')?.value ?? '').trim() === '' ? null : Number(tr.querySelector('.mp_prio').value),
+    })),
+  };
+  const row = rows[rows.length - 1];
+  const acctId = row.querySelector('.mp_acct').value;
+  const acctName = row.querySelector('.mp_acct').selectedOptions[0]?.textContent || '';
+  toast('正在从 ' + acctName + ' 拉取模型列表…');
+  let models;
+  try { models = (await api('GET', '/admin/upstream-accounts/discover-models?accountId=' + acctId)).models; }
+  catch (e) { toast('发现失败：' + e.message, 'err'); return; }
+  if (!models?.length) { toast('该账号未返回任何模型', 'err'); return; }
+  window._discAccount = { id: acctId, name: acctName };
+  openDrawer(drawer(`发现上游模型 · ${esc(acctName)}（${models.length} 个）`, `
+    <label class="field"><span>搜索过滤</span><input id="disc_kw" placeholder="输入关键字过滤，点击模型填入" oninput="filterDiscovered()"></label>
+    <div id="disc_list" style="max-height:460px;overflow-y:auto;border:1px solid var(--border);border-radius:6px">
+      ${models.map(m => `<div class="disc-item mono" onclick="pickDiscovered('${esc(m).replace(/'/g, "\\'")}')">${esc(m)}</div>`).join('')}
+    </div>
+    <div class="hint" style="margin-top:10px">点击模型将返回编辑抽屉并填入最后一条映射行的「上游模型」。</div>
+  `, `<button onclick="closeDrawer(); restoreModelDraft()">关闭</button>`));
+  $('#disc_kw').focus();
+}
+function filterDiscovered() {
+  const kw = $('#disc_kw').value.toLowerCase();
+  [...document.querySelectorAll('.disc-item')].forEach(el => {
+    el.style.display = el.textContent.toLowerCase().includes(kw) ? '' : 'none';
+  });
+}
+// 用暂存草稿重建模型编辑抽屉，target 有值时填入最后一行的上游模型
+function restoreModelDraft(target) {
+  const d = window._mpDraft;
+  if (!d) return;
+  const mappings = d.rows.map(r => ({ ...r }));
+  if (target && mappings.length) mappings[mappings.length - 1].upstreamModel = target;
+  openDrawer(drawer('新建模型', `
+    <label class="field"><span><b>*</b>模型名（对外提供的请求模型名）</span><input id="md_name" value="${esc(d.name)}" placeholder="如 glm-5.2 或 my-model"></label>
+    <label class="field"><span>上游映射（哪些账号以什么上游模型名提供它）</span>
+      <div style="border:1px solid var(--border);border-radius:6px;max-height:300px;overflow-y:auto">
+        <table style="margin:0"><thead><tr><th>账号</th><th>上游模型</th><th style="width:80px">优先级</th><th>类别</th><th></th></tr></thead>
+        <tbody id="mp_body">${mappings.map(mpRow).join('')}</tbody></table>
+      </div>
+      <div style="margin-top:8px;display:flex;gap:8px"><button onclick="addMpRow()">+ 添加映射</button><button onclick="discoverInto(this)">发现上游模型</button></div>
+      <div class="hint">类别决定协议端点：文本=chat/completions，向量=embeddings，重排=rerank，生图=images/generations</div></label>
+  `, `<button onclick="closeDrawer()">取消</button><button class="primary" onclick="saveModel('')">创建</button>`));
+}
+function pickDiscovered(name) {
+  closeDrawer();
+  restoreModelDraft(name);
+  toast('已填入 ' + name, 'ok');
+}
+async function editModel(name) {
+  const m = name ? window._allModels.find(x => x.name === name) : null;
+  const isVirtual = !!m?.virtual;
+  const mappings = m ? m.upstreams.map(u => ({ accountId: u.accountId, upstreamModel: u.upstreamModel, modelType: u.modelType, priority: u.modelPriority })) : [{}];
+  openDrawer(drawer((m ? '编辑模型 · ' : '新建模型') + (name || ''), `
+    <label class="field"><span><b>*</b>模型名（对外提供的请求模型名）</span><input id="md_name" value="${esc(name || '')}" ${m ? '' : 'placeholder="如 auto、glm-5.2 或 my-model"'}></label>
+    <label class="field"><span>虚拟模型（仅路由入口，无上游映射；如 auto / auto-vision）</span>
+      <label class="switch" style="vertical-align:middle"><input type="checkbox" id="md_virtual" ${isVirtual ? 'checked' : ''} onchange="$('#md_mappings_wrap').style.display=this.checked?'none':''"><span class="slider"></span></label>
+      <div class="hint">开启后不配置上游映射，请求完全交给智能路由规则与「默认使用模型」分发；需要真实上游时关闭</div></label>
+    <label class="field" id="md_mappings_wrap" style="${isVirtual ? 'display:none' : ''}"><span>上游映射（哪些账号以什么上游模型名提供它）</span>
+      <div style="border:1px solid var(--border);border-radius:6px;max-height:300px;overflow-y:auto">
+        <table style="margin:0"><thead><tr><th>账号</th><th>上游模型</th><th style="width:80px">优先级</th><th>类别</th><th></th></tr></thead>
+        <tbody id="mp_body">${mappings.map(mpRow).join('')}</tbody></table>
+      </div>
+      <div style="margin-top:8px;display:flex;gap:8px"><button onclick="addMpRow()">+ 添加映射</button><button onclick="discoverInto(this)">发现上游模型</button></div>
+      <div class="hint">类别决定协议端点：文本=chat/completions，向量=embeddings，重排=rerank，生图=images/generations</div></label>
+  `, `<button onclick="closeDrawer()">取消</button><button class="primary" onclick="saveModel('${esc(name || '')}')">${m ? '保存' : '创建'}</button>`));
+}
+async function saveModel(origName) {
+  const name = $('#md_name').value.trim();
+  if (!name) { toast('模型名必填', 'err'); return; }
+  const isVirtual = $('#md_virtual')?.checked;
+  try {
+    if (isVirtual) {
+      // 虚拟模型：无上游映射，用 smart-route 接口注册（enabled + 既有规则保留）
+      const existing = window._allModels.find(x => x.name === (origName || name));
+      await api('PUT', '/admin/models/' + encodeURIComponent(origName || name) + '/smart-route',
+        { enabled: true, rules: existing?.rules || [], defaultModel: existing?.defaultModel || '' });
+      closeDrawer(); toast(`已保存虚拟模型 ${name}——到智能路由配规则`, 'ok'); render();
+      return;
+    }
+    const mappings = [...$('#mp_body').rows].map(tr => ({
+      accountId: Number(tr.querySelector('.mp_acct').value),
+      upstreamModel: tr.querySelector('.mp_up').value.trim(),
+      modelType: tr.querySelector('.mp_type').value,
+      priority: (tr.querySelector('.mp_prio')?.value ?? '').trim() === '' ? null : Number(tr.querySelector('.mp_prio').value),
+    })).filter(mp => mp.upstreamModel);
+    if (!mappings.length) { toast('至少一条上游映射（或勾选虚拟模型）', 'err'); return; }
+    if (origName) await api('PUT', '/admin/models/' + encodeURIComponent(origName), { name, mappings });
+    else await api('POST', '/admin/models', { name, mappings });
+    closeDrawer(); toast(`已保存模型 ${name}（${mappings.length} 条映射）`, 'ok'); render();
+  } catch (e) { toast(e.message, 'err'); }
+}
+// 单模型路由规则抽屉（智能路由的模型级编辑入口）
+async function editModelRules(name) {
+  const m = window._allModels.find(x => x.name === name);
+  if (!m) { toast('模型不存在', 'err'); return; }
+  const others = window._allModels.filter(x => x.name !== name).map(x => x.name);
+  openDrawer(drawer('智能路由规则 · ' + name, `
+    <label class="field"><span>智能路由</span>
+      <label class="switch" style="vertical-align:middle"><input type="checkbox" id="mc_on" ${m.smartRoute ? 'checked' : ''}><span class="slider"></span></label>
+      <div class="hint">开启后该模型的请求按下方规则匹配（该模型独享）；未命中按账号优先级降级</div></label>
+    <label class="field"><span>默认使用模型（规则全部未命中时）</span>
+      <select id="mc_default"><option value="">— 未设置：按该模型自身账号优先级降级 —</option>
+        ${others.map(n => `<option value="${esc(n)}" ${m.defaultModel === n ? 'selected' : ''}>${esc(n)}</option>`).join('')}</select>
+      <div class="hint">配置后规则未命中时直接改走该模型；留空则回到本模型的账号优先级降级</div></label>
+    <label class="field"><span>失败分流（目标模型全链失败 / 429 / 熔断时，按请求分类改走）</span>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <div><div class="muted" style="font-size:12px;margin-bottom:4px">简单请求分流到</div>
+          <select id="mc_fbs"><option value="">— 不分流 —</option>${others.map(n => `<option value="${esc(n)}" ${m.fallbackSimple === n ? 'selected' : ''}>${esc(n)}</option>`).join('')}</select></div>
+        <div><div class="muted" style="font-size:12px;margin-bottom:4px">复杂请求分流到</div>
+          <select id="mc_fbc"><option value="">— 不分流 —</option>${others.map(n => `<option value="${esc(n)}" ${m.fallbackComplex === n ? 'selected' : ''}>${esc(n)}</option>`).join('')}</select></div>
+      </div>
+      <div class="hint">主用模型（含默认模型）所有上游都失败时触发：向量分类为简单的请求改走「简单」目标，复杂请求改走「复杂」目标</div></label>
+    <label class="field"><span>路由规则（按序匹配，命中第一条即改走目标模型；目标不可用则跳过）</span>
+      <div style="border:1px solid var(--border);border-radius:6px;max-height:320px;overflow-y:auto">
+        <table style="margin:0"><thead><tr><th>#</th><th>条件类型</th><th>条件值</th><th>目标模型</th><th>启用</th><th></th></tr></thead>
+        <tbody id="mc_rules">${(m.rules || []).map((r2, i) => mdlRuleRow(r2, i, others)).join('') || '<tr><td colspan="6" class="empty" style="padding:20px">暂无规则（未命中走优先级降级）</td></tr>'}</tbody></table>
+      </div>
+      <div style="margin-top:8px"><button onclick="addMcRule()">+ 添加规则</button></div></label>
+  `, `<button onclick="closeDrawer()">取消</button><button class="primary" onclick="saveModelCfg('${esc(name)}')">保存</button>`));
+}
+function mdlRuleRow(r, i, others = []) {
+  const opts = (list, cur) => list.map(n => `<option value="${esc(n)}" ${n === cur ? 'selected' : ''}>${esc(n)}</option>`).join('');
+  return `<tr>
+    <td class="muted">${i + 1}</td>
+    <td><select class="rl_type">${Object.entries(RULE_TYPES2).map(([k, t]) => `<option value="${k}" ${r.type === k ? 'selected' : ''}>${t.label}</option>`).join('')}</select></td>
+    <td><input class="rl_value" value="${esc(String(r.value ?? ''))}" ${RULE_TYPES2[r.type]?.value ? '' : 'disabled'}></td>
+    <td><input class="rl_target" value="${esc(r.target || '')}" list="mdl_targets"><datalist id="mdl_targets">${opts(others, r.target)}</datalist></td>
+    <td><label class="switch"><input type="checkbox" class="rl_enabled" ${r.enabled !== false ? 'checked' : ''}><span class="slider"></span></label></td>
+    <td><button class="link danger" onclick="this.closest('tr').remove()">✕</button></td>
+  </tr>`;
+}
+async function saveModelCfg(name) {
+  const rules = [...$('#mc_rules').rows].map((tr, i) => ({
+    id: i, type: tr.querySelector('.rl_type').value,
+    value: tr.querySelector('.rl_value').value,
+    target: tr.querySelector('.rl_target').value.trim(),
+    enabled: tr.querySelector('.rl_enabled').checked,
+  })).filter(r => r.target);
+  const enabled = $('#mc_on').checked;
+  const defaultModel = $('#mc_default')?.value || '';
+  const fallbackSimple = $('#mc_fbs')?.value || '';
+  const fallbackComplex = $('#mc_fbc')?.value || '';
+  try {
+    await api('PUT', '/admin/models/' + encodeURIComponent(name) + '/smart-route', { enabled, rules, defaultModel, fallbackSimple, fallbackComplex });
+    closeDrawer(); toast(`已保存 ${name} 配置（${enabled ? rules.length + ' 条规则' : '智能路由关闭'}）`, 'ok'); render();
+  } catch (e) { toast(e.message, 'err'); }
+}
+
+/* ============ 用户 ============ */
+async function viewUsers(v) {
+  const [r, ug] = await Promise.all([api('GET', '/admin/users'), api('GET', '/admin/user-groups')]);
+  const gname = Object.fromEntries(ug.groups.map(g => [g.id, g.name]));
+  v.innerHTML = `
+  <div class="topbar"><h1>用户</h1><div class="actions"><button class="primary" onclick="editUser()">添加用户</button></div></div>
+  <div class="card"><table><thead><tr><th>用户名</th><th>角色</th><th>用户组</th><th>请求数</th><th>Token 用量</th><th>最近登录</th><th>状态</th><th style="width:150px">操作</th></tr></thead>
+  <tbody>${r.users.map(u => `<tr>
+    <td><b>${esc(u.username)}</b></td>
+    <td><span class="tag ${u.role === 'admin' ? 't-blue' : ''}">${u.role === 'admin' ? '管理员' : '普通用户'}</span></td>
+    <td class="muted">${esc(gname[u.user_group_id] || u.user_group_id)}</td>
+    <td>${fmtNum(u.requestCount)}</td><td>${fmtNum(u.totalTokens)}</td>
+    <td class="muted">${fmtTime(u.last_login_at)}</td>
+    <td>${u.disabled ? '<span class="tag t-err">已禁用</span>' : '<span class="tag t-ok">正常</span>'}</td>
+    <td class="nowrap"><button class="link" onclick="editUser(${u.id})">编辑</button>
+      ${u.role === 'admin' ? '' : `<button class="link danger" onclick="delUser(${u.id},'${esc(u.username)}')">删除</button>`}</td>
+  </tr>`).join('')}</tbody></table></div>`;
+}
+async function editUser(id) {
+  const [r, ug] = await Promise.all([api('GET', '/admin/users'), api('GET', '/admin/user-groups')]);
+  const u = id ? r.users.find(x => String(x.id) === String(id)) : { username: '', role: 'user', user_group_id: ug.groups[0]?.id, disabled: 0 };
+  openDrawer(drawer(id ? '编辑用户 · ' + u.username : '添加用户', `
+    <label class="field"><span><b>*</b>用户名</span><input id="u_name" value="${esc(u.username)}" ${id ? 'readonly' : ''}></label>
+    <label class="field"><span>登录密码${id ? '（留空表示不修改）' : ''}</span><input id="u_pw" type="password" autocomplete="new-password"></label>
+    <label class="field"><span>角色</span><select id="u_role">
+      <option value="user" ${u.role === 'user' ? 'selected' : ''}>普通用户</option>
+      <option value="admin" ${u.role === 'admin' ? 'selected' : ''}>管理员</option></select></label>
+    <label class="field"><span>用户组</span><select id="u_ug">${ug.groups.map(g => `<option value="${g.id}" ${String(u.user_group_id) === String(g.id) ? 'selected' : ''}>${esc(g.name)}（并发 ${g.max_concurrency || '∞'}${g.token_quota ? '，配额 ' + fmtNum(g.token_quota) : ''}）</option>`).join('')}</select></label>
+    ${id && u.role !== 'admin' ? `<label class="field"><span>状态</span><label class="switch" style="vertical-align:middle"><input type="checkbox" id="u_disabled" ${u.disabled ? 'checked' : ''}><span class="slider"></span></label><span class="hint" style="display:inline;margin-left:8px">开启表示禁用该用户</span></label>` : ''}
+  `, `<button onclick="closeDrawer()">取消</button><button class="primary" onclick="saveUser(${id || 0})">保存</button>`));
+}
+async function saveUser(id) {
+  const body = { username: $('#u_name').value.trim(), role: $('#u_role').value, userGroupId: Number($('#u_ug').value) };
+  const pw = $('#u_pw').value; if (pw) body.password = pw;
+  if ($('#u_disabled')) body.disabled = $('#u_disabled').checked;
+  if (!body.username) { toast('请输入用户名', 'err'); return; }
+  if (!id && !pw) { toast('请输入密码', 'err'); return; }
+  try { await (id ? api('PUT', `/admin/users/${id}`, body) : api('POST', '/admin/users', body)); closeDrawer(); toast('已保存', 'ok'); render(); } catch (e) { toast(e.message, 'err'); }
+}
+async function delUser(id, name) { if (!confirm(`确认删除用户「${name}」？`)) return; try { await api('DELETE', `/admin/users/${id}`); toast('已删除', 'ok'); render(); } catch (e) { toast(e.message, 'err'); } }
+
+/* ============ 用户组 ============ */
+async function viewUserGroups(v) {
+  const [r, mg] = await Promise.all([api('GET', '/admin/user-groups'), api('GET', '/admin/model-groups')]);
+  const gname = Object.fromEntries(mg.groups.map(g => [g.id, g.name]));
+  v.innerHTML = `
+  <div class="topbar"><h1>用户组</h1><div class="actions"><button class="primary" onclick="editUserGroup()">添加用户组</button></div></div>
+  <div class="card"><table><thead><tr><th>名称</th><th>用户数</th><th>组并发</th><th>Token 配额</th><th>可用模型</th><th>状态</th><th style="width:140px">操作</th></tr></thead>
+  <tbody>${r.groups.map(g => `<tr>
+    <td><b>${esc(g.name)}</b>${g.is_default ? ' <span class="tag t-blue">默认</span>' : ''}</td>
+    <td>${g.userCount}</td><td>${g.max_concurrency || '∞'}</td><td>${g.queue_size ? g.queue_size + ' 人 / ' + (g.queue_timeout_sec || 30) + 's' : '<span class="muted">不限</span>'}</td><td>${g.token_quota ? fmtNum(g.token_quota) : '不限'}</td>
+    <td>${(g.allowedModels || []).map(n => `<span class="tag">${esc(n)}</span>`).join(' ') || '<span class="muted">全部</span>'}</td>
+    <td>${g.enabled ? '<span class="tag t-ok">启用</span>' : '<span class="tag t-warn">停用</span>'}</td>
+    <td class="nowrap"><button class="link" onclick="editUserGroup(${g.id})">编辑</button>${g.is_default ? '' : `<button class="link danger" onclick="delUserGroup(${g.id},'${esc(g.name)}')">删除</button>`}</td>
+  </tr>`).join('')}</tbody></table></div>`;
+}
+async function editUserGroup(id) {
+  const [r, mr] = await Promise.all([api('GET', '/admin/user-groups'), api('GET', '/admin/models')]);
+  const g = id ? r.groups.find(x => String(x.id) === String(id)) : { name: '', max_concurrency: 0, token_quota: 0, note: '', enabled: 1, allowedModels: [] };
+  const allModels = mr.models.map(m => m.name);
+  openDrawer(drawer(id ? '编辑用户组 · ' + g.name : '添加用户组', `
+    <label class="field"><span><b>*</b>名称</span><input id="ug_name" value="${esc(g.name)}"></label>
+    <div class="grid grid-2">
+      <label class="field"><span>组最大并发（0 = 不限）</span><input id="ug_conc" type="number" value="${g.max_concurrency || 0}"><div class="hint">该组在途请求数上限，超限进入等待队列</div></label>
+      <label class="field"><span>等待队列深度（0 = 不限）</span><input id="ug_queue" type="number" value="${g.queue_size || 0}" min="0"><div class="hint">并发满时最多允许排队的人数，超出直接 429 不排队</div></label>
+      <label class="field"><span>排队等待超时（秒，0 = 用全局 30s）</span><input id="ug_qt" type="number" value="${g.queue_timeout_sec || 0}" min="0"><div class="hint">排队等不到槽位的最长时间，超时 429</div></label>
+      <label class="field"><span>Token 配额（0 = 不限）</span><input id="ug_quota" type="number" value="${g.token_quota || 0}"></label>
+    </div>
+    <label class="field"><span>可用模型（不勾选 = 该组可用全部模型）</span>
+      <div class="chips" style="max-height:220px;overflow-y:auto;border:1px solid var(--border);border-radius:6px;padding:10px">${allModels.map(n => `<label class="chip"><input type="checkbox" class="ug_m" value="${esc(n)}" ${(g.allowedModels || []).includes(n) ? 'checked' : ''} style="margin-right:4px">${esc(n)}</label>`).join('')}</div>
+      <div class="hint">勾选后该组用户只能请求勾选的模型（含调用与模型广场）；虚拟模型（auto 等）也要勾选才可用</div></label>
+    <label class="field"><span>备注</span><input id="ug_note" value="${esc(g.note || '')}"></label>
+  `, `<button onclick="closeDrawer()">取消</button><button class="primary" onclick="saveUserGroup(${id || 0})">保存</button>`));
+}
+async function saveUserGroup(id) {
+  const body = { name: $('#ug_name').value.trim(), maxConcurrency: Number($('#ug_conc').value || 0), queueSize: Number($('#ug_queue')?.value || 0), queueTimeoutSec: Number($('#ug_qt')?.value || 0), tokenQuota: Number($('#ug_quota').value || 0), note: $('#ug_note').value, allowedModels: $$('.ug_m:checked').map(c => c.value) };
+  if (!body.name) { toast('请输入名称', 'err'); return; }
+  try { await (id ? api('PUT', `/admin/user-groups/${id}`, body) : api('POST', '/admin/user-groups', body)); closeDrawer(); toast('已保存', 'ok'); render(); } catch (e) { toast(e.message, 'err'); }
+}
+async function delUserGroup(id, name) { if (!confirm(`确认删除用户组「${name}」？`)) return; try { await api('DELETE', `/admin/user-groups/${id}`); toast('已删除', 'ok'); render(); } catch (e) { toast(e.message, 'err'); } }
+
+/* ============ 智能路由（模块化规则引擎） ============ */
+function addMcRule() {
+  const tb = $('#mc_rules');
+  if (tb.querySelector('.empty')) tb.innerHTML = '';
+  const others = (window._allModels || []).map(x => x.name);
+  tb.insertAdjacentHTML('beforeend', mdlRuleRow({ type: 'has_image', value: '', target: '', enabled: true }, tb.rows.length, others));
+}
+const RULE_TYPES2 = {
+  has_image: { label: '请求含图片', value: false },
+  simple: { label: '分类：简单请求', value: false },
+  complex: { label: '分类：复杂请求', value: false },
+  keyword: { label: '正文含关键词', value: true },
+  min_chars: { label: '正文长度 ≥ N 字符', value: true },
+  long_ctx: { label: '输入上下文 ≥ N token（估算）', value: true },
+  refusal: { label: '响应拒答时', value: false },
+};
+const RULE_TYPES = {
+  has_image: { label: '请求含图片', value: false, hint: '消息里带 image_url / 图片输入' },
+  simple: { label: '分类：简单请求', value: false, hint: '向量分类为 simple（短问答、闲聊类）' },
+  complex: { label: '分类：复杂请求', value: false, hint: '向量分类为 complex（代码、长文、推理类）' },
+  keyword: { label: '正文含关键词', value: true, hint: '请求正文包含指定关键词（不区分大小写）' },
+  min_chars: { label: '正文长度 ≥ N 字符', value: true, hint: '请求正文长度达到阈值' },
+  long_ctx: { label: '输入上下文 ≥ N token（估算）', value: true, hint: '整个 messages 估算 token 数达到阈值（重量级请求）' },
+};
+async function viewRouting(v) {
+  const [, samples, mr] = await Promise.all([api('GET', '/admin/route-rules'), api('GET', '/admin/smart-routing/samples?page=' + _samplePage + '&pageSize=20'), api('GET', '/admin/models')]);
+  window._allModels = mr.models;
+  const labels = Object.fromEntries((await api('GET', '/admin/smart-routing')).byLabel?.map(x => [x.label, x.c]) || []);
+  const ruleOf = (t) => ({ has_image: '含图片', simple: '简单', complex: '复杂', keyword: '关键词', min_chars: '长度≥N', long_ctx: '长上下文', refusal: '响应拒答' }[t] || t);
+  const jev = (await api('GET', '/admin/routing')).jev || {};
+  v.innerHTML = `
+  <div class="topbar"><h1>智能路由</h1><div class="actions">
+    <button onclick="go('routing')">刷新</button>
+    <button onclick="vectorizeAll()">构建缺失向量</button></div></div>
+  <div class="card"><div class="card-head"><h2>JEV 智能路由（laya 分类器）</h2>
+    <span class="muted" style="font-size:12px">把请求发给 laya-server 对自定义类别做概率分类，选最高者对应模型；置信度边缘不足落兜底模型（1Panel ai-gateway 1.3 JEV 对齐）</span>
+    <div style="display:flex;gap:8px"><button class="primary" onclick="editJev()">配置</button></div></div>
+    <div class="uc-grid" style="padding:14px 18px">
+      <div class="uc-card"><div class="uc-head"><div class="uc-name">状态</div><span class="tag ${jev.enabled ? 't-ok' : ''}">${jev.enabled ? '已启用' : '未启用'}</span></div>
+        <div class="uc-ups"><div class="uc-up"><span class="uc-dot"></span><span class="muted">分类端点</span><span class="muted uc-mono">${esc(jev.endpoint || '-')}</span></div>
+        <div class="uc-up"><span class="uc-dot"></span><span class="muted">兜底模型</span><span class="muted uc-mono">${esc(jev.fallbackModel || '未设置')}</span></div>
+        <div class="uc-up"><span class="uc-dot"></span><span class="muted">最低边缘</span><span class="muted uc-mono">${jev.minimumMargin ?? 0.1}</span></div></div></div>
+      ${(jev.targets || []).length ? jev.targets.map(t => `
+      <div class="uc-card"><div class="uc-head"><div class="uc-name">${esc(t.name)}</div><span class="tag t-blue">${esc(t.model)}</span></div>
+        <div class="uc-ups"><div class="uc-up"><span class="muted" style="font-size:12px">${esc((t.appliesTo || '').slice(0, 80))}</span></div>
+        ${t.notFor ? `<div class="uc-up"><span class="muted" style="font-size:12px">排除: ${esc(t.notFor.slice(0, 60))}</span></div>` : ''}</div></div>`).join('') : '<div class="uc-card"><span class="muted">未定义路由类别——点「配置」添加（每个类别 = 名称 + 适用描述 + 排除描述 + 目标模型）</span></div>'}
+    </div></div>
+  <div class="card"><div class="card-head"><h2>模型路由</h2><span class="muted" style="font-size:12px">每个开启智能路由的模型按各自规则集匹配；规则未命中用「默认使用模型」，未设置则按该模型账号优先级降级</span></div>
+    <div class="uc-grid" style="padding:14px 18px">${mr.models.filter(m => m.smartRoute).map(m => `
+      <div class="uc-card" style="cursor:pointer" onclick="editModelRules('${esc(m.name)}')">
+        <div class="uc-head"><div class="uc-name mono">${esc(m.name)}${m.virtual ? ' <span class="tag t-blue">虚拟</span>' : ''}</div><span class="tag t-ok">已开启</span></div>
+        <div class="uc-ups">${(m.rules || []).map(r => `<div class="uc-up"><span class="uc-dot ok"></span><span>${ruleOf(r.type)}${r.value ? '：' + esc(String(r.value)) : ''}</span><span class="muted uc-mono">→ ${esc(r.target)}</span></div>`).join('') || '<span class="muted">未配规则</span>'}
+          ${m.defaultModel ? `<div class="uc-up"><span class="uc-dot"></span><span class="muted">默认</span><span class="muted uc-mono">→ ${esc(m.defaultModel)}</span></div>` : ''}
+          ${m.fallbackSimple || m.fallbackComplex ? `<div class="uc-up"><span class="uc-dot" style="background:#d97706"></span><span class="muted">失败分流</span><span class="muted uc-mono">简→${esc(m.fallbackSimple || '-')} / 复→${esc(m.fallbackComplex || '-')}</span></div>` : ''}
+          ${!m.virtual && !m.rules?.length && !m.defaultModel ? '<span class="muted">按优先级降级</span>' : ''}</div>
+      </div>`).join('') || '<span class="muted">没有模型开启智能路由——到「模型」页新建虚拟模型（如 auto）或对现有模型开启智能路由</span>'}</div>
+  </div>
+  <div class="card"><div class="card-head"><h2>分类样本</h2>
+    <span class="muted" style="font-size:12px">简单 ${labels.simple || 0} · 复杂 ${labels.complex || 0} · 拒答 ${labels.refusal || 0} · 共 ${samples.total}</span>
+    <div style="display:flex;gap:8px"><button onclick="editSample()">添加样本</button></div></div>
+    <table><thead><tr><th style="width:70px">标签</th><th>样本文本</th><th>备注</th><th style="width:80px">向量</th><th style="width:110px">操作</th></tr></thead>
+    <tbody id="sampleBody">${(samples.samples || []).map(x => `<tr>
+      <td><span class="tag ${x.label === 'simple' ? 't-ok' : x.label === 'complex' ? 't-blue' : 't-warn'}">${({ simple: '简单', complex: '复杂', refusal: '拒答' }[x.label] || x.label)}</span></td>
+      <td title="${esc(x.text)}">${esc(x.text.length > 60 ? x.text.slice(0, 60) + '…' : x.text)}</td>
+      <td class="muted">${esc(x.remark || '')}</td>
+      <td>${Number(x.vector_dim) > 0 ? '<span class="tag t-ok">已建</span>' : '<span class="tag">待建</span>'}</td>
+      <td class="nowrap"><button class="link" onclick='editSampleById({id:${x.id},label:"${esc(x.label)}",text:${JSON.stringify(x.text).replace(/'/g, "&#39;")},remark:${JSON.stringify(x.remark || '').replace(/'/g, "&#39;")}})'>编辑</button>
+        <button class="link danger" onclick="delSample(${x.id})">删除</button></td>
+    </tr>`).join('') || '<tr><td colspan="5" class="empty">暂无样本</td></tr>'}</tbody></table>
+    ${pager(samples, 'samples')}
+  </div>`;
+}
+function editJev() {
+  api('GET', '/admin/routing').then(r => {
+    const jev = r.jev || { enabled: false, endpoint: 'http://192.168.5.125:8080', model: 'auto', targets: [], fallbackModel: '', minimumMargin: 0.1 };
+    window._jevTargets = JSON.parse(JSON.stringify(jev.targets || []));
+    const models = (window._allModels || []).map(m => m.name);
+    const opt = (sel) => models.map(m => `<option value="${esc(m)}" ${m === sel ? 'selected' : ''}>${esc(m)}</option>`).join('');
+    const rows = () => window._jevTargets.map((t, i) => `
+      <div style="border:1px solid var(--line,#e5e7eb);border-radius:8px;padding:10px;margin-bottom:8px">
+        <div style="display:flex;gap:8px;margin-bottom:6px">
+          <input id="jt_name_${i}" value="${esc(t.name)}" placeholder="类别名（如 复杂推理）" style="flex:1">
+          <select id="jt_model_${i}" style="width:180px">${opt(t.model)}</select>
+          <button class="link danger" onclick="window._jevTargets.splice(${i},1);refreshJevRows()">删除</button></div>
+        <textarea id="jt_applies_${i}" rows="2" placeholder="适用描述：什么请求属于该类别（如 需要多步推理、算法设计、复杂代码修改）" style="width:100%">${esc(t.appliesTo || '')}</textarea>
+        <textarea id="jt_notfor_${i}" rows="1" placeholder="排除描述（可选）：相似但不应归入该类的请求" style="width:100%;margin-top:6px">${esc(t.notFor || '')}</textarea>
+      </div>`).join('');
+    window.refreshJevRows = () => { $('#jev_targets').innerHTML = rows() || '<span class="muted">暂无类别</span>'; };
+    openDrawer(drawer('JEV 智能路由配置', `
+      <label class="field"><span>启用</span><select id="jev_enabled"><option value="1" ${jev.enabled ? 'selected' : ''}>启用</option><option value="0" ${!jev.enabled ? 'selected' : ''}>关闭（走本地向量/规则分类）</option></select></label>
+      <label class="field"><span>laya-server 端点</span><input id="jev_endpoint" value="${esc(jev.endpoint || 'http://192.168.5.125:8080')}"><div class="hint">POST /v1/systemone；API key 已从 laya-server 账号读取</div></label>
+      <label class="field"><span>兜底模型（置信度边缘不足时）</span><select id="jev_fallback"><option value="">不兜底（按最高概率走）</option>${opt(jev.fallbackModel)}</select></label>
+      <label class="field"><span>最低置信度边缘（0-1）</span><input id="jev_margin" type="number" step="0.05" min="0" max="1" value="${jev.minimumMargin ?? 0.1}"><div class="hint">最高与次高概率差小于该值时走兜底</div></label>
+      <div class="field"><span>路由类别（最多 10 个）</span><div id="jev_targets">${rows()}</div><button onclick="window._jevTargets.push({name:'',appliesTo:'',notFor:'',model:models[0]||''});refreshJevRows()">+ 添加类别</button></div>
+    `, `<button onclick="closeDrawer()">取消</button><button class="primary" onclick="saveJev()">保存</button>`));
+  });
+}
+async function saveJev() {
+  try {
+    const targets = [];
+    for (let i = 0; i < window._jevTargets.length; i++) {
+      const el = (s) => document.getElementById(s + '_' + i);
+      if (!el('jt_name')) continue;
+      const name = el('jt_name').value.trim();
+      if (!name) continue;
+      targets.push({ id: 't' + (i + 1), name, model: el('jt_model').value, appliesTo: el('jt_applies').value.trim(), notFor: el('jt_notfor').value.trim(), examples: [] });
+    }
+    if (!targets.length) return toast('至少需要一个路由类别', 'err');
+    const r = await api('GET', '/admin/routing');
+    r.jev = { ...r.jev, enabled: $('#jev_enabled').value === '1', endpoint: $('#jev_endpoint').value.trim(), targets, fallbackModel: $('#jev_fallback').value, minimumMargin: Number($('#jev_margin').value || 0.1) };
+    await api('PUT', '/admin/routing', r);
+    closeDrawer(); toast('JEV 配置已保存' + (r.jev.enabled ? '，已启用' : '（未启用）'), 'ok'); render();
+  } catch (e) { toast(e.message, 'err'); }
+}
+async function vectorizeAll() {
+  toast('正在构建向量，请稍候…');
+  try { const r = await api('POST', '/admin/smart-routing/vectorize'); toast(`向量化完成：成功 ${r.vectorized}，失败 ${r.failed}，剩余 ${r.pending}`, 'ok'); render(); }
+  catch (e) { toast(e.message, 'err'); }
+}
+function editSample(s) {
+  const sample = s || { label: 'simple', text: '', remark: '' };
+  openDrawer(drawer(s ? '编辑样本 #' + s.id : '添加样本', `
+    <label class="field"><span>标签</span><select id="s_label">
+      <option value="simple" ${sample.label === 'simple' ? 'selected' : ''}>简单（走轻量模型）</option>
+      <option value="complex" ${sample.label === 'complex' ? 'selected' : ''}>复杂（走主力模型）</option>
+      <option value="refusal" ${sample.label === 'refusal' ? 'selected' : ''}>拒答（响应文本特征，判定上游是否拒答）</option></select></label>
+    <label class="field"><span><b>*</b>样本文本</span><textarea id="s_text" rows="4" placeholder="贴近真实请求的一句话，如「香蕉放冰箱能保存更久吗」">${esc(sample.text || '')}</textarea></label>
+    <label class="field"><span>批量添加（每行一条，与上方标签一致）</span><textarea id="s_bulk" rows="6" placeholder="第一条样本&#10;第二条样本"></textarea>
+      <div class="hint">填写后将以批量模式导入，忽略上方单条文本</div></label>
+    <label class="field"><span>备注</span><input id="s_remark" value="${esc(sample.remark || '')}"></label>
+  `, `<button onclick="closeDrawer()">取消</button><button class="primary" onclick="saveSample(${s ? s.id : 0})">保存</button>`));
+}
+async function saveSample(id) {
+  try {
+    const bulk = $('#s_bulk').value.split('\n').map(l => l.trim()).filter(Boolean);
+    if (bulk.length) {
+      const r = await api('POST', '/admin/smart-routing/samples', { items: bulk.map(t => ({ label: $('#s_label').value, text: t, remark: $('#s_remark').value })) });
+      toast(`已导入 ${r.inserted} 条，正在后台向量化…`, 'ok');
+    } else {
+      await (id ? api('PUT', `/admin/smart-routing/samples/${id}`, { label: $('#s_label').value, text: $('#s_text').value, remark: $('#s_remark').value })
+                : api('POST', '/admin/smart-routing/samples', { label: $('#s_label').value, text: $('#s_text').value, remark: $('#s_remark').value }));
+      toast('已保存，正在后台向量化…', 'ok');
+    }
+    closeDrawer(); render();
+  } catch (e) { toast(e.message, 'err'); }
+}
+
+/* ============ 决策日志 ============ */
+let _decPage = 1, _decFilter = {};
+async function decPage(p) { _decPage = p; state.view = 'decisions'; await viewDecisions($('#view')); }
+async function viewDecisions(v) {
+  const q = new URLSearchParams({ page: _decPage, pageSize: 20, ..._decFilter });
+  const r = await api('GET', '/admin/smart-routing/decision-logs?' + q.toString());
+  const srcOf = (x) => x.startsWith('rule:') ? '规则' + x.slice(5) : x;
+  v.innerHTML = `
+  <div class="topbar"><h1>决策日志</h1><div class="actions"><button onclick="decPage(1)">刷新</button></div></div>
+  <div class="toolbar">
+    <input class="grow" id="d_kw" placeholder="搜索 Request ID / 选中模型 / 标签" value="${esc(_decFilter.keyword || '')}">
+    <select style="width:auto" id="d_days"><option value="1">近 1 天</option>
+      ${[3, 7, 30].map(d => `<option value="${d}" ${String(_decFilter.days) === String(d) ? 'selected' : ''}>近 ${d} 天</option>`).join('')}</select>
+    <button class="primary" onclick="applyDecFilter()">查询</button>
+  </div>
+  <div class="card">
+    <table><thead><tr><th>时间</th><th>请求模型</th><th>标签</th><th>置信度</th><th>选中模型</th><th>来源</th><th>Request ID</th></tr></thead>
+    <tbody>${r.logs.map(l => `<tr>
+      <td class="muted nowrap">${l.created_at_ms ? new Date(Number(l.created_at_ms)).toLocaleString('zh-CN', { hour12: false }) : fmtTime(l.created_at)}</td>
+      <td><b>${esc(l.request_model || '-')}</b></td>
+      <td><span class="tag ${l.route_label === 'simple' ? 't-ok' : l.route_label === 'complex' ? 't-blue' : l.route_label === 'refusal' ? 't-warn' : ''}">${esc(l.route_label || '-')}</span></td>
+      <td>${(Number(l.confidence) || 0).toFixed(2)}</td>
+      <td>${esc(l.selected_model || '-')}</td>
+      <td class="muted">${esc(srcOf(l.decision_source || ''))}</td>
+      <td class="mono muted" style="font-size:11px">${esc(l.request_id?.slice(0, 13))}…</td>
+    </tr>`).join('') || '<tr><td colspan="7" class="empty">暂无决策记录——智能路由模型的每次路由决策都会记录在这里</td></tr>'}</tbody></table>
+    ${pager(r, 'decisions')}
+  </div>`;
+}
+function applyDecFilter() {
+  _decFilter = { keyword: $('#d_kw').value.trim(), days: $('#d_days').value };
+  _decPage = 1; decPage(1);
+}
+
+/* ============ API Keys ============ */
+async function viewKeys(v) {
+  const [r, users] = await Promise.all([api('GET', '/admin/api-keys'), api('GET', '/admin/users')]);
+  v.innerHTML = `
+  <div class="topbar"><h1>API Keys</h1><div class="actions"><button class="primary" onclick="newKey(${JSON.stringify(users.users.map(u => ({ id: u.id, username: u.username }))).replace(/"/g, '&quot;')})">新建 Key</button></div></div>
+  <div class="card"><table><thead><tr><th>名称</th><th>所属用户</th><th>Key</th><th>并发上限</th><th>请求数</th><th>Token</th><th>最近使用</th><th>状态</th><th style="width:180px">操作</th></tr></thead>
+  <tbody>${r.keys.map(k => `<tr>
+    <td><b>${esc(k.name)}</b></td><td class="muted">${esc(k.username)}</td>
+    <td class="mono">${esc(k.mask)}</td><td>${Number(k.max_concurrency) > 0 ? k.max_concurrency : '不限'}</td><td>${fmtNum(k.requestCount)}</td><td>${fmtNum(k.totalTokens)}</td>
+    <td class="muted">${fmtTime(k.last_used_at)}</td>
+    <td>${k.disabled ? '<span class="tag t-err">已停用</span>' : '<span class="tag t-ok">启用</span>'}</td>
+    <td class="nowrap"><button class="link" onclick='editKey(${JSON.stringify({ id: k.id, name: k.name, max_concurrency: k.max_concurrency }).replace(/'/g, "&#39;")})'>编辑</button>
+      <button class="link" onclick="toggleKey(${k.id},${k.disabled ? 0 : 1})">${k.disabled ? '启用' : '停用'}</button>
+      <button class="link danger" onclick="delKey(${k.id},'${esc(k.name)}')">删除</button></td>
+  </tr>`).join('')}</tbody></table></div>`;
+}
+function newKey(users) {
+  openDrawer(drawer('新建 API Key', `
+    <label class="field"><span><b>*</b>名称</span><input id="k_name" placeholder="如 zcode、gbrain、书库"></label>
+    <label class="field"><span>所属用户</span><select id="k_user">${users.map(u => `<option value="${u.id}">${esc(u.username)}</option>`).join('')}</select></label>
+    <label class="field"><span>单 Key 最大并发（0 = 不限）</span><input id="k_conc" type="number" value="0" min="0"><div class="hint">该 Key 的在途请求数上限；超限进入等待队列，超时 429</div></label>
+    <div class="hint">创建后 Key 只在本次显示一次，请立即复制保存。</div>
+  `, `<button onclick="closeDrawer()">取消</button><button class="primary" onclick="createKey()">创建</button>`));
+}
+function editKey(k) {
+  openDrawer(drawer('编辑 Key · ' + k.name, `
+    <label class="field"><span>名称</span><input id="k_name" value="${esc(k.name)}"></label>
+    <label class="field"><span>单 Key 最大并发（0 = 不限）</span><input id="k_conc" type="number" value="${k.max_concurrency ?? 0}" min="0"></label>
+  `, `<button onclick="closeDrawer()">取消</button><button class="primary" onclick="saveKeyCfg(${k.id})">保存</button>`));
+}
+async function saveKeyCfg(id) {
+  try {
+    await api('PUT', '/admin/api-keys/' + id, { name: $('#k_name').value.trim(), maxConcurrency: Number($('#k_conc').value) || 0 });
+    closeDrawer(); toast('已保存', 'ok'); render();
+  } catch (e) { toast(e.message, 'err'); }
+}
+async function createKey() {
+  try {
+    const r = await api('POST', '/admin/api-keys', { name: $('#k_name').value.trim() || 'key', userId: Number($('#k_user').value) });
+    closeDrawer();
+    openDrawer(drawer('API Key 已创建', `
+      <label class="field"><span>请复制保存（仅显示一次）</span><input id="newkey" class="mono" value="${esc(r.key)}" readonly onclick="this.select()"></label>
+      <div class="hint">Base URL：<code>http(s)://&lt;网关地址&gt;/v1</code>，请求头 <code>Authorization: Bearer &lt;key&gt;</code></div>
+    `, `<button class="primary" onclick="closeDrawer();render()">完成</button>`));
+  } catch (e) { toast(e.message, 'err'); }
+}
+async function toggleKey(id, disabled) { try { await api('PUT', `/admin/api-keys/${id}`, { disabled }); toast('已更新', 'ok'); render(); } catch (e) { toast(e.message, 'err'); } }
+async function delKey(id, name) { if (!confirm(`确认删除 Key「${name}」？`)) return; try { await api('DELETE', `/admin/api-keys/${id}`); toast('已删除', 'ok'); render(); } catch (e) { toast(e.message, 'err'); } }
+
+
+// 通用分页器：r = {total, page, pageSize}，kind 驱动 gotoPage 分发
+function pager(r, kind) {
+  if (!r) return '';
+  const pages = Math.ceil(r.total / r.pageSize) || 1;
+  if (pages <= 1) return `<div class="pager"><span>共 ${r.total} 项</span></div>`;
+  const cur = Number(r.page) || 1;
+  const nums = [];
+  for (let i = Math.max(1, cur - 2); i <= Math.min(pages, cur + 2); i++) nums.push(i);
+  return `<div class="pager"><span>共 ${r.total} 项 · 第 ${cur}/${pages} 页</span><div class="pages">
+    <button onclick="gotoPage('${kind}',1)" ${cur === 1 ? 'disabled' : ''}>«</button>
+    ${nums.map(n => `<button class="${n === cur ? 'active' : ''}" onclick="gotoPage('${kind}',${n})">${n}</button>`).join('')}
+    <button onclick="gotoPage('${kind}',${pages})" ${cur === pages ? 'disabled' : ''}>»</button></div></div>`;
+}
+function gotoPage(kind, page) {
+  if (kind === 'logs') logPage(page);
+  else if (kind === 'samples') samplePage(page);
+  else if (kind === 'decisions') decPage(page);
+}
+let _samplePage = 1;
+async function samplePage(p) { _samplePage = p; state.view = 'routing'; await viewRouting($('#view')); }
+function editSampleById(x) { editSample({ id: x.id, label: x.label, text: x.text, remark: x.remark }); }
+async function delSample(id) {
+  if (!confirm('删除样本 #' + id + '？')) return;
+  try { await api('DELETE', '/admin/smart-routing/samples/' + id); toast('已删除', 'ok'); render(); } catch (e) { toast(e.message, 'err'); }
+}
+
+
+/* ============ 用户中心（普通用户：模型广场 + 我的 Key） ============ */
+async function viewUserCenter(v) {
+  const [me, models, keys] = await Promise.all([
+    api('GET', '/admin/users').then(r => r.users.find(u => u.id === state.user.id)),
+    fetch('/v1/models', { headers: { Authorization: 'Bearer ' + (state.userKey || '') } }).then(r => r.json()).catch(() => ({ data: [] })),
+    api('GET', '/admin/api-keys').then(r => r.keys.filter(k => k.user_id === state.user.id)),
+  ]);
+  // /v1/models 需要 key；没有 key 时用管理端 models 数据兜底（普通用户也能看可用模型）
+  let modelList = models?.data?.length ? models.data.map(m => m.id) : null;
+  let mdetail = null;
+  if (!modelList) {
+    try {
+      const r = await api('GET', '/admin/models');
+      mdetail = r.models.filter(m => !m.hidden);   // 隐藏模型不对普通用户展示
+      modelList = mdetail.map(m => m.name);
+      // 用户组模型白名单
+      const gid = me?.user_group_id;
+      const allowed = r.groupAllowedModels?.[gid];
+      if (allowed && allowed.length) {
+        const set = new Set(allowed);
+        modelList = modelList.filter(n => set.has(n));
+        mdetail = mdetail.filter(m => set.has(m.name));
+      }
+    } catch { modelList = []; }
+  }
+  const typeOf = (n) => { const m = n.toLowerCase();
+    return /(rerank|bge-reranker)/.test(m) ? '重排' : /(embed|bge-m3|gte-|e5-)/.test(m) ? '向量' : /(image|flux|sd3|cogview|wanx|seedream)/.test(m) ? '生图' : '文本'; };
+  const md = mdetail || [];
+  const typeTag = (t) => t === 'embedding' ? '<span class="tag">向量</span>' : t === 'image' ? '<span class="tag">生图</span>' : t === 'rerank' ? '<span class="tag">重排</span>' : '<span class="tag">文本</span>';
+  const cards = md.filter(m => !m.hidden).map(m => {
+    const ups = (m.upstreams || []).map(u => `
+      <div class="uc-up"><span class="uc-dot ${u.health === 'available' ? 'ok' : u.health === 'unavailable' ? 'bad' : ''}"></span>
+      <span class="uc-un">${esc(u.accountName)}</span><span class="muted uc-mono">${esc(u.upstreamModel)}</span><span class="tag">P${u.priority}</span></div>`).join('');
+    return `<div class="uc-card">
+      <div class="uc-head"><div class="uc-name mono" title="${esc(m.name)}">${esc(m.name)}</div><span style="display:flex;gap:4px;align-items:center;flex:none">${typeTag(m.upstreams?.[0]?.modelType || typeOf(m.name))}<button class="link" title="复制模型名" onclick="copyText('${esc(m.name).replace(/'/g, "\\'")}')">复制</button></span></div>
+      <div class="uc-ups">${ups || '<span class="muted">无可用上游</span>'}</div>
+    </div>`;
+  }).join('');
+  v.innerHTML = `
+  <div class="topbar"><h1>用户中心</h1><span class="muted" style="font-size:12.5px">${esc(state.user.username)}${me ? ' · 用户组 ' + (me.user_group_id === 2 ? '管理员' : 'Default') : ''}</span></div>
+  <div class="grid grid-2" style="margin-bottom:16px">
+    <div class="kpi"><div class="label">可用模型</div><div class="value">${modelList.filter(n => !md.find(m => m.name === n)?.hidden).length}</div><div class="sub">详见下方模型广场</div></div>
+    <div class="kpi"><div class="label">我的 API Key</div><div class="value">${keys.length}</div><div class="sub">请求数合计 ${fmtNum(keys.reduce((s, k) => s + Number(k.requestCount || 0), 0))}</div></div>
+  </div>
+  <div class="card"><div class="card-head"><h2>模型广场</h2><span class="muted" style="font-size:12px">以下模型可通过网关调用</span></div>
+    <div class="card-body"><div class="uc-grid">${cards || '<span class="muted">暂无</span>'}</div>
+    <div class="hint" style="margin-top:12px">调用方式：Base URL <code>${location.origin}/v1</code>，请求头 <code>Authorization: Bearer &lt;你的 Key&gt;</code>。支持 <code>/chat/completions</code>、<code>/responses</code>、<code>/embeddings</code>、<code>/rerank</code>、<code>/images/generations</code>。</div>
+  </div></div>
+  <div class="card"><div class="card-head"><h2>我的 Key</h2><button class="primary" onclick="newUserKey()">新建 Key</button></div>
+    <table><thead><tr><th>名称</th><th>Key</th><th>请求数</th><th>Token 用量</th><th>最近使用</th><th>状态</th></tr></thead>
+    <tbody>${keys.map(k => `<tr>
+      <td><b>${esc(k.name)}</b></td><td class="mono">${esc(k.mask)}</td>
+      <td>${fmtNum(k.requestCount)}</td><td>${fmtNum(k.totalTokens)}</td>
+      <td class="muted">${fmtTime(k.last_used_at)}</td>
+      <td>${k.disabled ? '<span class="tag t-err">已停用</span>' : '<span class="tag t-ok">启用</span>'}</td>
+    </tr>`).join('') || '<tr><td colspan="6" class="empty">还没有 Key</td></tr>'}</tbody></table>
+  </div>`;
+}
+function newUserKey() {
+  openDrawer(drawer('新建 API Key', `
+    <label class="field"><span><b>*</b>名称</span><input id="uk_name" placeholder="如 my-app"></label>
+    <div class="hint">创建后 Key 只显示一次。</div>
+  `, `<button onclick="closeDrawer()">取消</button><button class="primary" onclick="createUserKey()">创建</button>`));
+}
+async function createUserKey() {
+  try {
+    const r = await api('POST', '/admin/api-keys', { name: $('#uk_name').value.trim() || 'key', userId: state.user.id });
+    closeDrawer();
+    openDrawer(drawer('API Key 已创建', `
+      <label class="field"><span>请复制保存（仅显示一次）</span><input class="mono" value="${esc(r.key)}" readonly onclick="this.select()"></label>
+      <div class="hint">Base URL：<code>${location.origin}/v1</code></div>
+    `, `<button class="primary" onclick="closeDrawer();render()">完成</button>`));
+  } catch (e) { toast(e.message, 'err'); }
+}
+
+/* ============ 调用日志 ============ */
+let _logPage = 1, _logFilter = {};
+async function logPage(p) { _logPage = p; state.view = 'logs'; await viewLogs($('#view')); }
+async function viewLogs(v) {
+  const q = new URLSearchParams({ page: _logPage, pageSize: 20, ..._logFilter });
+  const r = await api('GET', '/admin/call-logs?' + q.toString());
+  v.innerHTML = `
+  <div class="topbar"><h1>调用日志</h1><div class="actions"><button onclick="logPage(1)">刷新</button></div></div>
+  <div class="toolbar">
+    <input class="grow" id="l_kw" placeholder="搜索 Request ID / 上游模型 / 错误码" value="${esc(_logFilter.keyword || '')}">
+    <input class="grow" id="l_model" placeholder="请求模型" value="${esc(_logFilter.model || '')}" style="max-width:180px">
+    <select style="width:auto" id="l_status"><option value="">全部结果</option>
+      <option value="ok" ${_logFilter.status === 'ok' ? 'selected' : ''}>成功</option>
+      <option value="fail" ${_logFilter.status === 'fail' ? 'selected' : ''}>失败</option></select>
+    <select style="width:auto" id="l_days"><option value="0">全部时间</option>
+      ${[1, 3, 7, 30].map(d => `<option value="${d}" ${String(_logFilter.days) === String(d) ? 'selected' : ''}>近 ${d} 天</option>`).join('')}</select>
+    <button class="primary" onclick="applyLogFilter()">查询</button>
+  </div>
+  <div class="card"><table><thead><tr><th>时间</th><th>请求模型</th><th>上游账号</th><th>上游模型</th><th>结果</th><th>耗时</th><th>流式</th><th>Tokens</th><th style="width:70px">操作</th></tr></thead>
+  <tbody>${r.logs.map(l => `<tr>
+    <td class="muted nowrap">${new Date(Number(l.started_at_ms)).toLocaleString('zh-CN', { hour12: false })}</td>
+    <td>${esc(l.request_model || '-')}</td>
+    <td class="muted">${esc(l.accountName || '-')}</td>
+    <td class="muted">${esc(l.upstream_model || '-')}</td>
+    <td>${l.result_kind === 1 ? '<span class="tag t-ok">成功</span>' : `<span class="tag t-err">失败</span>`}${l.error_code ? `<div class="hint">${esc(l.error_code)}</div>` : ''}</td>
+    <td>${fmtDur(l.duration_ms)}${l.first_byte_ms ? `<div class="hint">首字节 ${fmtDur(l.first_byte_ms)}</div>` : ''}</td>
+    <td class="muted">${l.stream ? '是' : '否'}</td>
+    <td class="muted">${l.total_tokens ? fmtNum(l.total_tokens) : '-'}</td>
+    <td><button class="link" onclick='showLog(${JSON.stringify(l).replace(/'/g, "&#39;")})'>详情</button></td>
+  </tr>`).join('') || '<tr><td colspan="9" class="empty">没有匹配的日志</td></tr>'}</tbody></table>
+  ${pager(r, 'logs')}</div>`;
+  $$('#l_kw,#l_model').forEach(i => i.addEventListener('keydown', e => { if (e.key === 'Enter') applyLogFilter(); }));
+}
+function applyLogFilter() {
+  _logFilter = { keyword: $('#l_kw').value.trim(), model: $('#l_model').value.trim(), status: $('#l_status').value, days: $('#l_days').value };
+  logPage(1);
+}
+function showLog(l) {
+  openDrawer(drawer('调用详情', `
+    <table>
+      <tr><td class="muted" style="width:130px">Request ID</td><td class="mono">${esc(l.request_id)}</td></tr>
+      <tr><td class="muted">时间</td><td>${fmtTime(new Date(Number(l.started_at_ms)).toISOString())}</td></tr>
+      <tr><td class="muted">请求模型</td><td><b>${esc(l.request_model || '-')}</b></td></tr>
+      <tr><td class="muted">上游账号 / 模型</td><td>${esc(l.accountName || '-')} · ${esc(l.upstream_model || '-')}</td></tr>
+      <tr><td class="muted">结果</td><td>${l.result_kind === 1 ? '<span class="tag t-ok">成功</span>' : '<span class="tag t-err">失败</span>'} ${esc(l.error_code || '')}</td></tr>
+      <tr><td class="muted">上游状态码</td><td>${l.upstream_status ?? '-'}</td></tr>
+      <tr><td class="muted">耗时</td><td>${fmtDur(l.duration_ms)}${l.first_byte_ms ? `（首字节 ${fmtDur(l.first_byte_ms)}）` : ''}</td></tr>
+      <tr><td class="muted">尝试次数</td><td>${l.attempt_count}</td></tr>
+      <tr><td class="muted">流式</td><td>${l.stream ? '是' : '否'}</td></tr>
+      <tr><td class="muted">Tokens</td><td>输入 ${l.input_tokens ?? '-'} · 输出 ${l.output_tokens ?? '-'} · 合计 ${l.total_tokens ?? '-'} · 缓存 ${l.cached_tokens ?? '-'}</td></tr>
+      <tr><td class="muted">用户 / Key</td><td>用户 ${l.user_id ?? '-'} · Key ${l.api_key_id ?? '-'}</td></tr>
+    </table>
+    <div class="card-head" style="padding:14px 0 8px;border:0"><h2 style="font-size:13.5px">路由决策</h2></div>
+    <div id="logDecision" class="muted" style="font-size:13px">加载中…</div>
+    <div class="card-head" style="padding:14px 0 8px;border:0"><h2 style="font-size:13.5px">请求 / 响应正文</h2>
+      <span class="muted" style="font-size:12px" id="bodyStatus">从 Elasticsearch 加载中…</span></div>
+    <div id="logBodies"></div>
+    ${l.accountName ? `<div class="hint" style="margin-top:14px">可用 <code>POST /api/v1/admin/upstream-accounts/&lt;id&gt;/test-model</code> 对 <b>${esc(l.accountName)}</b> 做连通性自检。</div>` : ''}
+  `, `<button onclick="closeDrawer()">关闭</button>`));
+  loadLogBodies(l.request_id);
+  loadLogDecision(l.request_id);
+}
+// 调用日志详情：显示当次智能路由决策
+async function loadLogDecision(requestId) {
+  const box = $('#logDecision');
+  if (!box) return;
+  try {
+    const r = await api('GET', '/admin/smart-routing/decision-logs?pageSize=5&keyword=' + encodeURIComponent(String(requestId).slice(0, 13)));
+    const d = r.logs?.[0];
+    if (!d) { box.closest('.card-head')?.remove(); box.remove(); return; }
+    box.innerHTML = `<table style="margin:0">
+      <tr><td class="muted" style="width:120px">请求模型</td><td><b>${esc(d.request_model || '-')}</b></td></tr>
+      <tr><td class="muted">路由标签</td><td><span class="tag ${d.route_label === 'simple' ? 't-ok' : d.route_label === 'complex' ? 't-blue' : 't-warn'}">${esc(d.route_label)}</span> · 置信度 ${(Number(d.confidence) || 0).toFixed(2)}</td></tr>
+      <tr><td class="muted">选中模型</td><td><b>${esc(d.selected_model)}</b></td></tr>
+      <tr><td class="muted">决策来源</td><td class="muted">${esc(d.decision_source)}</td></tr>
+    </table>`;
+  } catch { box.closest('.card-head')?.remove(); box.remove(); }
+}
+// 从 ES 取回该次调用的请求/响应正文（mapping 里正文不建索引，按 request_id 精确查）
+async function loadLogBodies(requestId) {
+  const box = $('#logBodies'), st = $('#bodyStatus');
+  if (!box) return;
+  const rid = String(requestId || '').replace(/-/g, '').slice(0, 32);
+  try {
+    const r = await api('GET', '/admin/body-audit/search?requestId=' + encodeURIComponent(rid) + '&days=30&size=5');
+    // 历史版本存在一次调用双写（请求/响应各一条）的残缺文档，优先取两段正文都齐的那条
+    const hit = r.hits?.find(h => h.request_present || h.response_present) || r.hits?.[0];
+    if (!hit) { st.textContent = 'ES 中无该次调用的正文记录（可能审计未开启或已过保留期）'; box.innerHTML = ''; return; }
+    const d = await api('GET', '/admin/body-audit/doc?id=' + encodeURIComponent(hit.id) + '&index=' + encodeURIComponent(hit.index || ''));
+    st.textContent = `来源 Elasticsearch · 请求 ${d.request_stored_bytes ?? 0}B${d.request_truncated ? '（截断）' : ''} · 响应 ${d.response_stored_bytes ?? 0}B${d.response_truncated ? '（截断）' : ''}`;
+    box.innerHTML = `
+      <label class="field"><span>请求正文</span>
+        <textarea rows="9" readonly style="font-family:ui-monospace,monospace;font-size:11px;max-height:320px;min-height:80px;resize:vertical">${esc(d.request_body_raw || '（未捕获）')}</textarea></label>
+      <label class="field"><span>响应正文</span>
+        <textarea rows="9" readonly style="font-family:ui-monospace,monospace;font-size:11px;max-height:320px;min-height:80px;resize:vertical">${esc(d.response_body_raw || '（未捕获）')}</textarea></label>`;
+  } catch (e) {
+    st.textContent = '无法从 ES 读取正文：' + e.message;
+    box.innerHTML = '';
+  }
+}
+
+/* ============ 用量统计 ============ */
+let _usageDays = 30;
+async function usagePage(p) { await viewUsage($('#view')); }
+async function viewUsage(v) {
+  const r = await api('GET', '/admin/usage-statistics?days=' + _usageDays);
+  const t = r.totals;
+  const rows = (arr, nameKey) => arr.map(x => `<tr><td>${esc(x[nameKey])}</td><td>${fmtNum(x.calls)}</td><td>${fmtNum(x.tokens)}</td></tr>`).join('');
+  v.innerHTML = `
+  <div class="topbar"><h1>用量统计</h1><div class="actions">
+    <select style="width:auto" onchange="_usageDays=Number(this.value);render()">${[1, 7, 30, 90].map(d => `<option value="${d}" ${_usageDays === d ? 'selected' : ''}>近 ${d} 天</option>`).join('')}</select>
+    <button onclick="render()">刷新</button></div></div>
+  <div class="grid grid-4" style="margin-bottom:16px">
+    <div class="kpi"><div class="label">请求量</div><div class="value">${fmtNum(t.calls)}</div></div>
+    <div class="kpi"><div class="label">输入 Token</div><div class="value">${fmtNum(t.input)}</div></div>
+    <div class="kpi"><div class="label">输出 Token</div><div class="value">${fmtNum(t.output)}</div></div>
+    <div class="kpi"><div class="label">总 Token</div><div class="value">${fmtNum(t.total)}</div><div class="sub">缓存 ${fmtNum(t.cached)}</div></div>
+  </div>
+  <div class="grid grid-2">
+    <div class="card"><div class="card-head"><h2>按请求模型分布</h2></div>
+      <table><thead><tr><th>模型（实际转发）</th><th>请求量</th><th>Token</th></tr></thead><tbody>${rows(r.byUpstreamModel || r.byModel, 'request_model') || '<tr><td colspan="3" class="empty">无数据</td></tr>'}</tbody></table></div>
+    <div class="card"><div class="card-head"><h2>按上游账号分布</h2></div>
+      <table><thead><tr><th>账号</th><th>请求量</th><th>Token</th></tr></thead><tbody>${rows(r.byAccount, 'name') || '<tr><td colspan="3" class="empty">无数据</td></tr>'}</tbody></table></div>
+    <div class="card"><div class="card-head"><h2>按用户分布</h2></div>
+      <table><thead><tr><th>用户</th><th>请求量</th><th>Token</th></tr></thead><tbody>${rows(r.byUser, 'username') || '<tr><td colspan="3" class="empty">无数据</td></tr>'}</tbody></table></div>
+    <div class="card"><div class="card-head"><h2>近 14 天趋势</h2></div><div class="card-body" id="usageTrend">加载中…</div></div>
+  </div>`;
+  const tr = await api('GET', '/admin/overview/trend?days=14');
+  const max = Math.max(1, ...tr.days.map(d => d.calls));
+  $('#usageTrend').innerHTML = `<div class="spark">${tr.days.map(d => `<i class="${d.calls === max ? 'on' : ''}" style="height:${Math.max(3, (d.calls / max) * 100)}%" title="${d.day}：${d.calls} 次 / ${fmtNum(d.tokens)} tokens"></i>`).join('') || '<span class="muted">暂无数据</span>'}</div>
+    <table style="margin-top:14px"><thead><tr><th>日期</th><th>请求</th><th>成功</th><th>Token</th><th>平均耗时</th></tr></thead>
+    <tbody>${tr.days.slice().reverse().slice(0, 7).map(d => `<tr><td>${d.day}</td><td>${d.calls}</td><td>${d.ok}</td><td>${fmtNum(d.tokens)}</td><td>${fmtDur(d.avgMs)}</td></tr>`).join('')}</tbody></table>`;
+}
+
+/* ============ 正文审计（ES） ============ */
+async function viewAudit(v) {
+  const cfga = await api('GET', '/admin/body-audit');
+  v.innerHTML = `
+  <div class="topbar"><h1>正文审计</h1><div class="actions">
+    <label style="display:flex;align-items:center;gap:8px;font-size:13px">启用
+      <label class="switch"><input type="checkbox" ${cfga.enabled ? 'checked' : ''} onchange="saveAudit({enabled:this.checked})"><span class="slider"></span></label></label>
+    <button onclick="testEs()">测试连接</button>
+    <button class="primary" onclick="editAuditCfg()">ES 设置</button></div></div>
+  <div class="card"><div class="card-body">
+    <div class="grid grid-4">
+      <div class="kpi"><div class="label">状态</div><div class="value" style="font-size:16px">${cfga.enabled ? '<span class="tag t-ok">启用</span>' : '<span class="tag t-warn">停用</span>'} ${cfga.configured ? '' : '<span class="tag t-err">未配置 ES</span>'}</div>
+        <div class="sub">队列 ${cfga.runtime.queued || 0} · 失败连击 ${cfga.runtime.failStreak || 0}</div></div>
+      <div class="kpi"><div class="label">ES 端点</div><div class="value" style="font-size:14px">${esc(cfga.endpoint || '未配置')}</div></div>
+      <div class="kpi"><div class="label">正文上限</div><div class="value">${cfga.requestMaxKiB} / ${cfga.responseMaxKiB} <span class="muted" style="font-size:12px">KiB</span></div><div class="sub">请求 / 响应</div></div>
+      <div class="kpi"><div class="label">保留天数</div><div class="value">${cfga.retentionDays}</div></div>
+    </div>
+    <div class="hint" style="margin-top:12px">每次调用的请求/响应正文异步批量（_bulk）写入 Elasticsearch 数据流 <code>ai-gateway-audit</code>（与 1Panel ai-gateway 同名同构，可共用检索）。全文检索请用下方搜索。</div>
+  </div></div>
+  <div class="card"><div class="card-head"><h2>全文检索</h2></div>
+    <div class="card-body">
+      <div class="toolbar" style="margin-bottom:10px">
+        <input class="grow" id="es_rid" placeholder="Request ID 精确查询" style="max-width:260px">
+        <input class="grow" id="es_model" placeholder="模型名（如 glm-5.2）" style="max-width:200px">
+        <select style="width:auto" id="es_result"><option value="">全部结果</option><option value="success">成功</option><option value="failed">失败</option></select>
+        <select style="width:auto" id="es_days">${[1, 3, 7, 30].map(d => `<option value="${d}" ${d === 7 ? 'selected' : ''}>近 ${d} 天</option>`).join('')}</select>
+        <button class="primary" onclick="esSearch()">查询</button>
+      </div>
+      <div class="hint" style="margin-bottom:10px">正文在 ES 中不建索引（与 aigw 相同），查询按模型/结果/Request ID 过滤，点「详情」取回完整请求与响应正文。</div>
+      <div id="es_results"><div class="empty">设置过滤条件后查询</div></div>
+    </div></div>`;
+  $$('#es_rid,#es_model').forEach(i => i.addEventListener('keydown', e => { if (e.key === 'Enter') esSearch(); }));
+}
+async function saveAudit(patch) {
+  try { const r = await api('PUT', '/admin/body-audit', patch); toast(r.active ? '审计已启用' : '已保存（当前未激活）', 'ok'); }
+  catch (e) { toast(e.message, 'err'); }
+}
+async function testEs() {
+  toast('正在测试 ES 连接…');
+  try { const r = await api('POST', '/admin/body-audit/test'); r.ok ? toast(`连接正常 · ES ${r.version} · 集群 ${r.cluster}`, 'ok') : toast('连接失败：' + r.error, 'err'); }
+  catch (e) { toast(e.message, 'err'); }
+}
+function editAuditCfg() {
+  api('GET', '/admin/body-audit').then(cfga => {
+    openDrawer(drawer('Elasticsearch 设置', `
+      <label class="field"><span>ES 端点</span><input id="es_url" value="${esc(cfga.endpoint || '')}" placeholder="http://192.168.5.145:19220"></label>
+      <div class="grid grid-2">
+        <label class="field"><span>用户名</span><input id="es_user" value="${esc(cfga.username || 'elastic')}"></label>
+        <label class="field"><span>密码（留空保持原值）</span><input id="es_pass" type="password" placeholder="${cfga.hasCredential ? '已配置（信封加密）' : '未配置'}"></label>
+      </div>
+      <div class="grid grid-2">
+        <label class="field"><span>请求正文上限 KiB</span><input id="es_req" type="number" value="${cfga.requestMaxKiB}"></label>
+        <label class="field"><span>响应正文上限 KiB</span><input id="es_res" type="number" value="${cfga.responseMaxKiB}"></label>
+      </div>
+      <label class="field"><span>保留天数</span><input id="es_ret" type="number" value="${cfga.retentionDays}"></label>
+      <div class="hint">凭据以信封加密落库，明文只在本次传输中出现。</div>
+    `, `<button onclick="closeDrawer()">取消</button><button class="primary" onclick="saveAuditCfg()">保存</button>`));
+  });
+}
+async function saveAuditCfg() {
+  const body = { endpoint: $('#es_url').value.trim(), username: $('#es_user').value.trim(), requestMaxKiB: Number($('#es_req').value || 1024), responseMaxKiB: Number($('#es_res').value || 1024), retentionDays: Number($('#es_ret').value || 30) };
+  if ($('#es_pass').value) body.password = $('#es_pass').value;
+  try { await api('PUT', '/admin/body-audit', body); closeDrawer(); toast('已保存', 'ok'); render(); } catch (e) { toast(e.message, 'err'); }
+}
+async function esSearch() {
+  const rid = $('#es_rid').value.trim(), model = $('#es_model').value.trim(), result = $('#es_result').value;
+  const box = $('#es_results');
+  if (!rid && !model && !result) { box.innerHTML = '<div class="empty">请至少填写一个过滤条件</div>'; return; }
+  box.innerHTML = '<div class="empty">查询中…</div>';
+  const q = new URLSearchParams({ days: $('#es_days').value });
+  if (rid) q.set('requestId', rid);
+  if (model) q.set('model', model);
+  if (result) q.set('result', result);
+  try {
+    const r = await api('GET', '/admin/body-audit/search?' + q.toString());
+    box.innerHTML = r.total === 0 ? '<div class="empty">无匹配结果</div>' :
+      `<table><thead><tr><th>时间</th><th>模型</th><th>上游</th><th>结果</th><th>正文</th><th></th></tr></thead>
+      <tbody>${r.hits.map(h => `<tr>
+        <td class="muted nowrap">${fmtTime(h['@timestamp'])}</td>
+        <td>${esc(h.request_model || '-')}</td>
+        <td class="muted">${esc(h.upstream_model || '-')}</td>
+        <td>${h.result === 'success' ? '<span class="tag t-ok">成功</span>' : '<span class="tag t-err">失败</span>'} ${h.status_code}</td>
+        <td class="muted">${h.request_present ? h.request_stored_bytes + 'B' : '-'} / ${h.response_present ? h.response_stored_bytes + 'B' : '-'}</td>
+        <td><button class="link" onclick="esDoc('${h.id}','${h.index || ''}')">详情</button></td>
+      </tr>`).join('')}</tbody></table>
+      <div class="hint" style="padding:10px 18px">命中 ${r.total} 条（最多显示 20）</div>`;
+  } catch (e) { box.innerHTML = `<div class="empty">${esc(e.message)}</div>`; }
+}
+async function esDoc(id, index) {
+  try {
+    const d = await api('GET', '/admin/body-audit/doc?id=' + encodeURIComponent(id) + (index ? '&index=' + encodeURIComponent(index) : ''));
+    openDrawer(drawer('审计详情 · ' + (d.request_id || '').slice(0, 12), `
+      <table>
+        <tr><td class="muted" style="width:130px">Request ID</td><td class="mono">${esc(d.request_id)}</td></tr>
+        <tr><td class="muted">时间</td><td>${fmtTime(d['@timestamp'])}</td></tr>
+        <tr><td class="muted">模型</td><td>${esc(d.request_model || '-')} → ${esc(d.upstream_model || '-')}${d.upstream_account_name ? '（' + esc(d.upstream_account_name) + '）' : ''}</td></tr>
+        <tr><td class="muted">协议</td><td>${esc(d.client_protocol || '-')} → ${esc(d.upstream_protocol || '-')}</td></tr>
+        <tr><td class="muted">结果</td><td>${d.result} ${d.status_code} · ${fmtDur(d.duration_ms)}${d.stream ? ' · 流式' : ''}</td></tr>
+      </table>
+      <label class="field" style="margin-top:14px"><span>请求正文${d.request_truncated ? '（已截断）' : ''} ${d.request_sha256 ? '<span class="mono hint">' + esc(d.request_sha256.slice(0, 16)) + '…</span>' : ''}</span>
+        <textarea rows="10" readonly style="font-family:ui-monospace,monospace;font-size:11px;max-height:320px;min-height:80px;resize:vertical">${esc(d.request_body_raw || '（未捕获）')}</textarea></label>
+      <label class="field"><span>响应正文${d.response_truncated ? '（已截断）' : ''}</span>
+        <textarea rows="10" readonly style="font-family:ui-monospace,monospace;font-size:11px;max-height:320px;min-height:80px;resize:vertical">${esc(d.response_body_raw || '（未捕获）')}</textarea></label>
+    `, `<button onclick="closeDrawer()">关闭</button>`));
+  } catch (e) { toast(e.message, 'err'); }
+}
+
+/* ============ 内容合规 ============ */
+async function viewCompliance(v) {
+  const r = await api('GET', '/admin/content-compliance');
+  v.innerHTML = `
+  <div class="topbar"><h1>内容合规</h1><div class="actions">
+    <label style="display:flex;align-items:center;gap:8px;font-size:13px">启用检查
+      <label class="switch"><input type="checkbox" ${r.settings?.enabled ? 'checked' : ''} onchange="toggleCompliance(this.checked)"><span class="slider"></span></label></label>
+    <button class="primary" onclick="editPolicyGroup()">添加策略组</button></div></div>
+  <div class="card"><div class="card-body">
+    <div class="hint">开启后，请求正文命中敏感词即按策略处理：<b>拦截</b>直接返回 400，<b>仅告警</b>记录后放行。</div>
+  </div></div>
+  ${r.groups.map(g => `<div class="card">
+    <div class="card-head"><h2>${esc(g.name)} ${g.enabled ? '<span class="tag t-ok">启用</span>' : '<span class="tag t-warn">停用</span>'} <span class="tag ${g.action === 'block' ? 't-err' : 't-warn'}">${g.action === 'block' ? '拦截' : '仅告警'}</span> <span class="tag">风险 ${esc(g.risk)}</span></h2>
+      <div><button class="link" onclick="addWord(${g.id})">+ 添加敏感词</button><button class="link danger" onclick="delPolicyGroup(${g.id},'${esc(g.name)}')">删除</button></div></div>
+    <div class="card-body">
+      <div class="chips">${(g.words || []).map(w => `<span class="chip"><b>${esc(w.word)}</b><span class="x" onclick="delWord(${w.id})">✕</span></span>`).join('') || '<span class="muted">暂无敏感词</span>'}</div>
+      ${g.description ? `<div class="hint" style="margin-top:10px">${esc(g.description)}</div>` : ''}
+    </div></div>`).join('')}
+  ${r.groups.length ? '' : '<div class="card"><div class="empty">暂无策略组。默认不拦截任何内容。</div></div>'}`;
+}
+async function toggleCompliance(enabled) { try { await api('PUT', '/admin/content-compliance', { enabled }); toast(enabled ? '已启用内容检查' : '已关闭内容检查', 'ok'); } catch (e) { toast(e.message, 'err'); } }
+function editPolicyGroup() {
+  openDrawer(drawer('添加策略组', `
+    <label class="field"><span><b>*</b>名称</span><input id="c_name" placeholder="如 成人内容"></label>
+    <div class="grid grid-2">
+      <label class="field"><span>命中动作</span><select id="c_action"><option value="block">拦截</option><option value="audit_only">仅告警</option></select></label>
+      <label class="field"><span>风险等级</span><select id="c_risk"><option value="high">高</option><option value="medium">中</option><option value="low">低</option></select></label>
+    </div>
+    <label class="field"><span>说明</span><input id="c_desc"></label>
+  `, `<button onclick="closeDrawer()">取消</button><button class="primary" onclick="savePolicyGroup()">保存</button>`));
+}
+async function savePolicyGroup() {
+  try { await api('POST', '/admin/content-compliance', { name: $('#c_name').value.trim(), action: $('#c_action').value, risk: $('#c_risk').value, description: $('#c_desc').value }); closeDrawer(); toast('已保存', 'ok'); render(); } catch (e) { toast(e.message, 'err'); }
+}
+function addWord(gid) {
+  const w = prompt('输入敏感词：'); if (!w) return;
+  api('POST', '/admin/content-compliance', { policyGroupId: gid, word: w }).then(() => { toast('已添加', 'ok'); render(); }).catch(e => toast(e.message, 'err'));
+}
+async function delWord(id) { try { await api('DELETE', '/admin/content-compliance', { wordId: id }); toast('已删除', 'ok'); render(); } catch (e) { toast(e.message, 'err'); } }
+async function delPolicyGroup(id, name) { if (!confirm(`确认删除策略组「${name}」及其敏感词？`)) return; try { await api('DELETE', '/admin/content-compliance', { groupId: id }); toast('已删除', 'ok'); render(); } catch (e) { toast(e.message, 'err'); } }
+
+/* ============ 设置 ============ */
+let _settingsTab = 'general';
+async function viewSettings(v) {
+  const rt = await api('GET', '/admin/overview/runtime');
+  const tabs = [['general', '通用'], ['performance', '性能设置'], ['health', '健康与容灾'], ['routing2', '智能路由'], ['vector2', '向量服务'], ['compliance2', '内容合规'], ['es2', 'Elasticsearch'], ['account2', '账号安全']];
+  v.innerHTML = `
+  <div class="topbar"><h1>设置</h1></div>
+  <div class="tabs">${tabs.map(([k, n]) => `<button class="${_settingsTab === k ? 'active' : ''}" onclick="_settingsTab='${k}';render()">${n}</button>`).join('')}</div>
+  <div id="settingsBody"></div>`;
+  const body = $('#settingsBody');
+  const t = _settingsTab;
+  if (t === 'general') {
+    body.innerHTML = `<div class="card"><div class="card-head"><h2>接入信息</h2></div><div class="card-body">
+    <table>
+      <tr><td class="muted" style="width:180px">接入地址</td><td class="mono">${location.origin}/v1</td></tr>
+      <tr><td class="muted">支持端点</td><td class="mono muted">/chat/completions · /responses · /embeddings · /rerank · /images/generations · /models</td></tr>
+      <tr><td class="muted">客户端协议</td><td>OpenAI Chat Completions · OpenAI Responses</td></tr>
+      <tr><td class="muted">协议转换</td><td>
+        <label class="switch" style="vertical-align:middle"><input type="checkbox" id="pf_conv" onchange="toggleProtoConv(this.checked)"><span class="slider"></span></label>
+        <span class="muted" style="margin-left:8px">开启后，无可用原生账号时使用已支持的 Chat Completions / Responses 与 Anthropic Messages 直接转换；<b>原生协议始终优先</b>。<br>协议转换并非无损：协议专属字段、工具调用、思考内容或多模态能力可能无法安全转换，导致请求在调用上游前失败。</span></td></tr>
+      <tr><td class="muted">鉴权方式</td><td><code>Authorization: Bearer &lt;API Key&gt;</code></td></tr>
+      <tr><td class="muted">运行时长</td><td>${Math.floor(rt.uptimeSec / 86400)}天${Math.floor((rt.uptimeSec % 86400) / 3600)}时${Math.floor((rt.uptimeSec % 3600) / 60)}分</td></tr>
+    </table></div></div>`;
+    api('GET', '/admin/settings').then(c => { const el = $('#pf_conv'); if (el) el.checked = c.protocol_conversion !== false; }).catch(() => {});
+  } else if (t === 'performance') {
+    const p = await api('GET', '/admin/settings/performance');
+    body.innerHTML = `<div class="card"><div class="card-head"><h2>性能设置</h2><button class="primary" onclick="savePerfSettings()">保存</button></div>
+    <div class="card-body">
+      <div class="grid grid-2">
+        <label class="field"><span>请求体上限（MB）</span><input id="pf_body" type="number" value="${p.max_body_mb ?? 32}"><div class="hint">超过直接 413，防内存滥用</div></label>
+        <label class="field"><span>流式空闲超时（秒）</span><input id="pf_idle" type="number" value="${p.stream_idle_sec ?? 600}"><div class="hint">流式响应无数据超过此时长则中断</div></label>
+        <label class="field"><span>请求总超时（秒）</span><input id="pf_timeout" type="number" value="${p.request_timeout_sec ?? 1800}"><div class="hint">单个上游请求最长等待</div></label>
+        <label class="field"><span>流式首字节超时（秒）</span><input id="pf_ttfb" type="number" value="${p.stream_first_byte_timeout_sec ?? 180}"><div class="hint">流式请求等上游第一个字节的时长；大上下文 prefill 慢（闲鱼 glm-5.3 实测 26-60s+），过短会误杀并连锁熔断账号</div></label>
+        <label class="field"><span>网关级最大并发（0 = 不限）</span><input id="pf_conc" type="number" value="${p.max_concurrency ?? 0}"></label>
+      </div>
+      <div class="hint">当前网关并发 ${rt.gatewayConcurrency}，流式 ${rt.streaming}。</div>
+    </div></div>`;
+  } else if (t === 'health') {
+    const h = await api('GET', '/admin/settings/health_policy');
+    body.innerHTML = `<div class="card"><div class="card-head"><h2>健康与容灾</h2><button class="primary" onclick="saveHealthSettings()">保存</button></div>
+    <div class="card-body">
+      <div class="grid grid-2">
+        <label class="field"><span>配额熔断时长（秒）</span><input id="hp_quota" type="number" value="${h.quotaLatchSec ?? 1800}"><div class="hint">402/余额不足后账号闩锁时长，期间走兜底链；到期后半开探测自动恢复</div></label>
+        <label class="field"><span>基础冷却（秒）</span><input id="hp_cool" type="number" value="${h.cooldownBaseSec ?? 60}"><div class="hint">临时错误指数退避的基数（x2^n，上限 1 小时）</div></label>
+        <label class="field"><span>连续失败熔断阈值</span><input id="hp_fails" type="number" value="${h.errorFails ?? 3}"><div class="hint">普通错误连续 N 次后标记不可用</div></label>
+        <label class="field"><span>半开探测间隔（秒）</span><input value="60" readonly><div class="hint">固定 60s（真实体积探测 ~30KB）</div></label>
+      </div>
+      <div class="hint">上游配额错误 → 熔断 + ntfy 告警（同账号同日一次）→ 半开探测通过 → 自动回归原路由。</div>
+    </div></div>`;
+  } else if (t === 'routing2') {
+    const [cfg, mr] = await Promise.all([api('GET', '/admin/settings'), api('GET', '/admin/models')]);
+    const allNames = mr.models.map(x => x.name);
+    const modelSelect = (id, cur, allowEmpty, emptyLabel) => `<select id="${id}">
+      ${allowEmpty ? `<option value="" ${!cur ? 'selected' : ''}>${emptyLabel || '— 未设置 —'}</option>` : ''}
+      ${allNames.map(n => `<option value="${esc(n)}" ${n === cur ? 'selected' : ''}>${esc(n)}</option>`).join('')}
+      ${cur && !allNames.includes(cur) ? `<option value="${esc(cur)}" selected>${esc(cur)}（当前值，不在模型列表）</option>` : ''}
+    </select>`;
+    body.innerHTML = `<div class="card"><div class="card-head"><h2>智能路由</h2><button class="link" onclick="go('routing')">前往规则编辑 →</button>
+      <button class="primary" onclick="saveRoutingSettings()">保存</button></div>
+    <div class="card-body">
+      <div class="grid grid-2">
+        <label class="field"><span>拒答重试</span>
+          <label class="switch" style="vertical-align:middle"><input type="checkbox" id="rt_refusal" ${cfg.refusal_retry !== false ? 'checked' : ''}><span class="slider"></span></label>
+          <div class="hint">响应命中拒答特征（关键词/refusal 字段）时触发确认与重试</div></label>
+        <label class="field"><span>拒答判断模型（LLM 结构化确认）</span>${modelSelect('rt_confirm', cfg.confirm_model, true, '— 关闭确认，直接按疑似拒答处理 —')}
+          <div class="hint">收到疑似拒答后先让该模型判定是否真拒答，非拒答则原样返回</div></label>
+        <label class="field"><span>拒答重试模型（无审查兜底）</span>${modelSelect('rt_local', cfg.local_retry_model, true, '— 不使用本地重试 —')}
+          <div class="hint">确认拒答后用该模型重发（如本地无审查模型）</div></label>
+        <label class="field"><span>视觉模型</span>${modelSelect('rt_vision', cfg.vision_model, true)}
+          <div class="hint">当前输入带图且目标模型不吃图时改走它；历史图片也由它转成文字描述后交给主模型</div></label>
+        <label class="field"><span>Embedding 分类模型</span>${modelSelect('rt_embed', cfg['embedding.model'] || cfg.embedding_model, true)}
+          <div class="hint">simple/complex 分类用；兜底 ${esc(cfg.embedding_fallback_model || '-')}</div></label>
+        <label class="field"><span>重排模型</span>${modelSelect('rt_rerank', cfg.rerank_model, true)}</label>
+      </div>
+      <div class="hint" style="margin-top:8px">这里是<b>全局默认</b>的拒答链与分类模型；模型级覆盖在「智能路由」页每个模型的规则里（模型级优先）。<br>
+      完整优先级（以 auto 为例）：① 规则命中（如带图 → 视觉模型）→ ② 默认使用模型（如 glm-5.3）→ ③ 目标全链失败 429/熔断时失败分流（简单 → 简单模型，复杂 → 复杂模型）→ ④ 响应拒答时：关键词初筛 → <b>拒答判断模型</b>确认 → refusal 规则目标 → 本地重试模型兜底。</div>
+    </div></div>`;
+  } else if (t === 'vector2') {
+    const [vs, cfg] = await Promise.all([api('GET', '/admin/vector-service'), api('GET', '/admin/settings')]);
+    body.innerHTML = `<div class="card"><div class="card-head"><h2>向量服务</h2><button class="primary" onclick="saveVectorService()">保存</button></div>
+    <div class="card-body">
+      <label class="field"><span>模式</span><select id="vs_mode" onchange="$('#vs_direct').style.display=this.value==='direct'?'':'none';$('#vs_gw').style.display=this.value==='gateway'?'':'none'">
+        <option value="gateway" ${vs.mode !== 'direct' ? 'selected' : ''}>网关上游账号（复用模型页的 embedding 账号）</option>
+        <option value="direct" ${vs.mode === 'direct' ? 'selected' : ''}>独立向量服务（自定义端点直连，如 SiliconFlow）</option></select></label>
+      <div id="vs_gw" style="${vs.mode === 'direct' ? 'none' : ''}">
+        <label class="field"><span>Embedding 模型（走网关账号）</span><input id="vs_gw_model" value="${esc(cfg['embedding.model'] || '')}" placeholder="Qwen/Qwen3-Embedding-8B">
+          <div class="hint">该模型须在「模型」页有可用上游；分类/向量化都用它</div></label>
+      </div>
+      <div id="vs_direct" style="${vs.mode !== 'direct' ? 'none' : ''}">
+        <div class="grid grid-2">
+          <label class="field"><span><b>*</b>Base URL</span><input id="vs_url" value="${esc(vs.base_url || '')}" placeholder="https://api.siliconflow.cn/v1">
+            <div class="hint">OpenAI 兼容 /embeddings 端点（自动补全路径）</div></label>
+          <label class="field"><span><b>*</b>模型名</span><input id="vs_model" value="${esc(vs.model || '')}" placeholder="Qwen/Qwen3-Embedding-8B"></label>
+          <label class="field"><span>API Key${vs.hasKey ? '（已配置，留空不修改）' : ''}</span><input id="vs_key" type="password" autocomplete="new-password" placeholder="${vs.hasKey ? '已保存，留空保持不变' : 'sk-...'}"></label>
+          <label class="field"><span>输出维度（0 = 服务默认）</span><input id="vs_dim" type="number" value="${vs.dimensions || 0}" min="0">
+            <div class="hint">固定维度请求（如 SiliconFlow 1024）；改维度须重建全部样本向量</div></label>
+        </div>
+        <div style="display:flex;gap:8px"><button onclick="testVectorService()">测试连通</button>${vs.hasKey ? '<button class="danger" onclick="clearVectorKey()">清除已存 Key</button>' : ''}</div>
+      </div>
+      <div class="hint" style="margin-top:10px">独立服务直连不占用网关上游账号与并发额度；失败自动回退网关账号。切换模式或改维度后建议到智能路由页点「构建缺失向量」。</div>
+    </div></div>`;
+  } else if (t === 'compliance2') {
+    const c = await api('GET', '/admin/content-compliance');
+    body.innerHTML = `<div class="card"><div class="card-head"><h2>内容合规</h2>
+      <div style="display:flex;gap:10px;align-items:center">
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px">启用检查
+          <label class="switch"><input type="checkbox" ${c.settings?.enabled ? 'checked' : ''} onchange="toggleCompliance(this.checked)"><span class="slider"></span></label></label>
+        <button class="link" onclick="go('compliance')">前往策略组管理 →</button></div></div>
+      <div class="card-body"><table>
+        <tr><td class="muted" style="width:180px">当前状态</td><td>${c.settings?.enabled ? '<span class="tag t-ok">启用</span>' : '<span class="tag t-warn">停用</span>'}</td></tr>
+        <tr><td class="muted">策略组数</td><td>${c.groups.length}</td></tr>
+        <tr><td class="muted">敏感词总数</td><td>${c.groups.reduce((s, g) => s + (g.words?.length || 0), 0)}</td></tr>
+        <tr><td class="muted">处理方式</td><td class="muted">命中即拦（block）返回 400 · 仅告警（audit_only）记录放行</td></tr>
+      </table></div></div>`;
+  } else if (t === 'es2') {
+    const cfga = await api('GET', '/admin/body-audit');
+    body.innerHTML = `<div class="card"><div class="card-head"><h2>Elasticsearch 正文审计</h2>
+      <div style="display:flex;gap:10px;align-items:center">
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px">启用
+          <label class="switch"><input type="checkbox" ${cfga.enabled ? 'checked' : ''} onchange="saveAudit({enabled:this.checked})"><span class="slider"></span></label></label>
+        <button class="link" onclick="editAuditCfg()">配置</button>
+        <button class="link" onclick="testEs()">测试连接</button>
+        <button class="link" onclick="go('audit')">前往检索 →</button></div></div>
+      <div class="card-body"><table>
+        <tr><td class="muted" style="width:180px">状态</td><td>${cfga.enabled ? '<span class="tag t-ok">启用</span>' : '<span class="tag t-warn">停用</span>'} 队列 ${cfga.runtime.queued || 0} · 失败连击 ${cfga.runtime.failStreak || 0}</td></tr>
+        <tr><td class="muted">端点</td><td class="mono">${esc(cfga.endpoint || '未配置')}</td></tr>
+        <tr><td class="muted">正文上限</td><td>${cfga.requestMaxKiB} / ${cfga.responseMaxKiB} KiB（请求/响应）</td></tr>
+        <tr><td class="muted">保留天数</td><td>${cfga.retentionDays}</td></tr>
+        <tr><td class="muted">数据流</td><td class="mono">ai-gateway-audit（与 1Panel ai-gateway 共用）</td></tr>
+      </table></div></div>`;
+  } else if (t === 'account2') {
+    body.innerHTML = `<div class="card"><div class="card-head"><h2>账号安全</h2></div><div class="card-body">
+      <div style="max-width:420px">
+        <label class="field"><span>当前用户</span><input value="${esc(state.user.username)}" readonly></label>
+        <label class="field"><span>原密码</span><input id="pw_old" type="password"></label>
+        <label class="field"><span>新密码</span><input id="pw_new" type="password"></label>
+        <button class="primary" onclick="changePassword()">修改密码</button>
+      </div></div></div>`;
+  }
+}
+async function saveVectorService() {
+  try {
+    const mode = $('#vs_mode').value;
+    const body = { mode };
+    if (mode === 'gateway') {
+      body['embedding.model'] = $('#vs_gw_model')?.value.trim() || '';
+    } else {
+      body.base_url = $('#vs_url').value.trim();
+      body.model = $('#vs_model').value.trim();
+      body.dimensions = Number($('#vs_dim').value) || 0;
+      if ($('#vs_key').value.trim()) body.api_key = $('#vs_key').value.trim();
+    }
+    await api('PUT', '/admin/vector-service', body);
+    toast('向量服务设置已保存', 'ok');
+  } catch (e) { toast(e.message, 'err'); }
+}
+async function testVectorService() {
+  toast('测试中…');
+  try {
+    // 先保存当前表单（测试用已存配置）
+    await saveVectorServiceSilent();
+    const r = await api('POST', '/admin/vector-service/test');
+    toast(`连通成功：${r.dimensions} 维，${r.latencyMs}ms`, 'ok');
+  } catch (e) { toast('测试失败：' + (e.message || JSON.stringify(e)), 'err'); }
+}
+async function saveVectorServiceSilent() {
+  const mode = $('#vs_mode').value;
+  const body = { mode };
+  if (mode === 'gateway') { body['embedding.model'] = $('#vs_gw_model')?.value.trim() || ''; }
+  else {
+    body.base_url = $('#vs_url').value.trim();
+    body.model = $('#vs_model').value.trim();
+    body.dimensions = Number($('#vs_dim').value) || 0;
+    if ($('#vs_key').value.trim()) body.api_key = $('#vs_key').value.trim();
+  }
+  await api('PUT', '/admin/vector-service', body);
+}
+async function clearVectorKey() {
+  if (!confirm('清除已保存的 API Key？')) return;
+  try { await api('PUT', '/admin/vector-service', { clearKey: true }); toast('已清除', 'ok'); render(); } catch (e) { toast(e.message, 'err'); }
+}
+async function saveRoutingSettings() {
+  try {
+    const body = {
+      refusal_retry: $('#rt_refusal')?.checked ?? true,
+      confirm_model: $('#rt_confirm')?.value || '',
+      local_retry_model: $('#rt_local')?.value || '',
+      vision_model: $('#rt_vision')?.value || '',
+      'embedding.model': $('#rt_embed')?.value || '',
+      rerank_model: $('#rt_rerank')?.value || '',
+    };
+    await api('PUT', '/admin/settings', body);
+    toast('智能路由设置已保存', 'ok');
+  } catch (e) { toast(e.message, 'err'); }
+}
+async function toggleProtoConv(on) {
+  try { await api('PUT', '/admin/settings', { protocol_conversion: on }); toast(on ? '协议转换已开启（原生优先，转换兜底）' : '协议转换已关闭（仅原生账号）', 'ok'); }
+  catch (e) { toast(e.message, 'err'); }
+}
+async function savePerfSettings() {
+  const body = { max_body_mb: Number($('#pf_body').value || 32), stream_idle_sec: Number($('#pf_idle').value || 600), request_timeout_sec: Number($('#pf_timeout').value || 1800), max_concurrency: Number($('#pf_conc').value || 0), stream_first_byte_timeout_sec: Number($('#pf_ttfb').value || 180) };
+  try { await api('PUT', '/admin/settings/performance', body); toast('性能设置已保存（部分项重启后完全生效）', 'ok'); } catch (e) { toast(e.message, 'err'); }
+}
+async function saveHealthSettings() {
+  const body = { quotaLatchSec: Number($('#hp_quota').value || 1800), cooldownBaseSec: Number($('#hp_cool').value || 60), errorFails: Number($('#hp_fails').value || 3) };
+  try { await api('PUT', '/admin/settings/health_policy', body); toast('健康策略已保存', 'ok'); } catch (e) { toast(e.message, 'err'); }
+}
+async function changePassword() {
+  try { await api('POST', '/admin/me/password', { oldPassword: $('#pw_old').value, newPassword: $('#pw_new').value }); toast('密码已修改', 'ok'); }
+  catch (e) { toast(e.message === 'old_password_invalid' ? '原密码不正确' : e.message, 'err'); }
+}
+
+/* 启动 */
+(async () => {
+  try {
+    const cur = await fetch('/api/v1/auth/current', { credentials: 'same-origin' }).then(r => r.json());
+    if (!cur.user) { state.user = null; render(); return; }
+    state.user = cur.user; state.csrf = cur.csrf || '';
+    render();
+  } catch { state.user = null; render(); }
+})();
+</script>
+</body>
+</html>

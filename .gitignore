@@ -1,0 +1,9 @@
+node_modules/
+data/
+tmp/
+.env
+相应路径/
+*.bak
+*.bak-*
+*.bak_*
+*.bak-premodelprio
