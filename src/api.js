@@ -215,9 +215,9 @@ class Api {
     if (path === '/api/v1/admin/models') {
       const accounts = this.db.prepare('SELECT id,name,priority,enabled,health_status FROM upstream_accounts').all();
       const acct = Object.fromEntries(accounts.map(a => [a.id, a]));
-      const rows = this.db.prepare(`SELECT m.request_model_name, m.upstream_model_name, m.model_type, m.account_id, m.priority AS model_priority, COALESCE(m.priority, a.priority) AS eff_priority
+      const rows = this.db.prepare(`SELECT m.request_model_name, m.upstream_model_name, m.model_type, m.account_id, m.priority AS model_priority, (a.priority + COALESCE(m.priority, 0)) AS eff_priority
         FROM upstream_account_models m JOIN upstream_accounts a ON a.id=m.account_id
-        WHERE a.enabled=1 ORDER BY m.request_model_name, COALESCE(m.priority, a.priority) DESC, a.id`).all();
+        WHERE a.enabled=1 ORDER BY m.request_model_name, (a.priority + COALESCE(m.priority, 0)) DESC, a.id`).all();
       const byModel = {};
       for (const r of rows) {
         (byModel[r.request_model_name] = byModel[r.request_model_name] || []).push({
@@ -252,7 +252,7 @@ class Api {
         if (exists) return json(409, { error: 'duplicate_model' });
         for (const mp of body.mappings || []) {
           if (!mp.accountId || !mp.upstreamModel) continue;
-          this.db.prepare('INSERT INTO upstream_account_models (account_id, request_model_name, upstream_model_name, model_type, priority) VALUES (?,?,?,?,?) ON CONFLICT (account_id, request_model_name) DO UPDATE SET upstream_model_name=excluded.upstream_model_name, model_type=excluded.model_type, priority=excluded.priority')
+          this.db.prepare('INSERT INTO upstream_account_models (account_id, request_model_name, upstream_model_name, model_type, priority) VALUES (?,?,?,?,?) ON CONFLICT (account_id, request_model_name, upstream_model_name) DO UPDATE SET upstream_model_name=excluded.upstream_model_name, model_type=excluded.model_type, priority=excluded.priority')
             .run(mp.accountId, body.name, mp.upstreamModel, mp.modelType || '', (mp.priority===undefined||mp.priority===null||mp.priority==='')?null:Number(mp.priority));
         }
         return json(200, { ok: true, name: body.name });
@@ -272,7 +272,7 @@ class Api {
           this.db.prepare('DELETE FROM upstream_account_models WHERE request_model_name=?').run(effName);
           for (const mp of body.mappings) {
             if (!mp.accountId || !mp.upstreamModel) continue;
-            this.db.prepare('INSERT INTO upstream_account_models (account_id, request_model_name, upstream_model_name, model_type, priority) VALUES (?,?,?,?,?) ON CONFLICT (account_id, request_model_name) DO UPDATE SET upstream_model_name=excluded.upstream_model_name, model_type=excluded.model_type, priority=excluded.priority')
+            this.db.prepare('INSERT INTO upstream_account_models (account_id, request_model_name, upstream_model_name, model_type, priority) VALUES (?,?,?,?,?) ON CONFLICT (account_id, request_model_name, upstream_model_name) DO UPDATE SET upstream_model_name=excluded.upstream_model_name, model_type=excluded.model_type, priority=excluded.priority')
               .run(mp.accountId, effName, mp.upstreamModel, mp.modelType || body.modelType || '', (mp.priority===undefined||mp.priority===null||mp.priority==='')?null:Number(mp.priority));
           }
         }
@@ -463,7 +463,7 @@ class Api {
     const target = id || this.db.prepare("SELECT id FROM upstream_accounts WHERE name=?").get(b.name).id;
     // 先 UPSERT 全部模型行（成功后再删多余行，避免 PG 上 UPSERT 失败把已有映射清空）
     for (const mm of models) {
-      this.db.prepare('INSERT INTO upstream_account_models (account_id,request_model_name,upstream_model_name,model_type,priority) VALUES (?,?,?,?,?) ON CONFLICT (account_id, request_model_name) DO UPDATE SET upstream_model_name=EXCLUDED.upstream_model_name, model_type=EXCLUDED.model_type, priority=EXCLUDED.priority')
+      this.db.prepare('INSERT INTO upstream_account_models (account_id,request_model_name,upstream_model_name,model_type,priority) VALUES (?,?,?,?,?) ON CONFLICT (account_id, request_model_name, upstream_model_name) DO UPDATE SET upstream_model_name=EXCLUDED.upstream_model_name, model_type=EXCLUDED.model_type, priority=EXCLUDED.priority')
         .run(target, mm.requestModelName, mm.upstreamModelName || mm.requestModelName, mm.modelType || '', (mm.priority===undefined||mm.priority===null)?null:Number(mm.priority));
     }
     {

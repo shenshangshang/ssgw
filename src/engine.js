@@ -39,6 +39,9 @@ class Engine {
     this.cfg = opts.config;         // config 模块
     // 运行时状态（内存，定期刷库）
     this.accountState = new Map();  // id -> {inflight, health, lastFailureAt, cooldownUntil, consecutiveFails, halfOpen}
+    // 模型级熔断状态（内存）：key = "<accountId>::<upstream_model_name>" -> {health, cooldownUntil, consecutiveFails}
+    // 一个模型配额/限流失败只熔断该模型，不判死整个账号（同账号其他模型照常路由）
+    this.modelState = new Map();
     this.inflight = 0;              // 网关级并发（供概览展示）
     this.streaming = 0;             // 当前流式请求数
     this.groupInflight = new Map(); // user_group_id -> 当前并发（组限额闸）
@@ -63,17 +66,26 @@ class Engine {
     }
   }
 
+  // 模型级优先级：按映射行的 priority 排序（同一模型可给不同账号/出口不同顺序），
+  // 账号优先级只作次级排序兜底。WorkBuddy 的 global:/cn: 双出口就是靠多行映射 + 行级 priority 控制
   accountsForModel(modelName) {
     return this.db.prepare(`
-      SELECT a.*, m.upstream_model_name FROM upstream_accounts a
+      SELECT a.*, m.upstream_model_name, m.priority AS map_priority FROM upstream_accounts a
       JOIN upstream_account_models m ON m.account_id = a.id
       WHERE m.request_model_name = ? AND a.enabled = 1
-      ORDER BY COALESCE(m.priority, a.priority) DESC, a.id`).all(modelName);
+      ORDER BY COALESCE(m.priority, 0) DESC, a.priority DESC, m.id`).all(modelName);
   }
 
   _state(id) {
     if (!this.accountState.has(id)) this.accountState.set(id, { inflight: 0, health: 'unknown', cooldownUntil: null, consecutiveFails: 0 });
     return this.accountState.get(id);
+  }
+
+  // 模型级状态：quota/busy 熔断按（账号, 上游模型）粒度记录；error 仍走账号级（网络/5xx 是整个账号的事）
+  _mstate(accountId, upstreamModel) {
+    const key = accountId + '::' + (upstreamModel || '');
+    if (!this.modelState.has(key)) this.modelState.set(key, { health: 'available', cooldownUntil: null, consecutiveFails: 0 });
+    return this.modelState.get(key);
   }
 
   // 等待账号并发槽位：轮询至超时；返回 true=等到槽位，false=超时放弃
@@ -102,40 +114,51 @@ class Engine {
     await new Promise(r => setTimeout(r, delay));
   }
 
-  _available(st, account) {
+  _available(st, account, mst) {
     if (account.max_concurrency > 0 && st.inflight >= account.max_concurrency) return false;
     if (st.health === 'unavailable') {
       if (st.cooldownUntil && Date.now() >= st.cooldownUntil) return true; // 半开：冷却到期允许试探
       return st.cooldownUntil === null ? false : false;
     }
     if (st.health === 'cooldown' && st.cooldownUntil && Date.now() < st.cooldownUntil) return false;
+    // 模型级熔断：该账号的该模型在冷却/闩锁中（quota/busy），其他模型不受影响
+    if (mst && mst.health !== 'available' && mst.cooldownUntil && Date.now() < mst.cooldownUntil) return false;
+    if (mst && mst.health === 'unavailable' && (!mst.cooldownUntil || Date.now() >= mst.cooldownUntil)) return true; // 模型级半开试探
     return true;
   }
 
-  markFailure(account, kind /* 'busy' | 'quota' | 'error' */) {
+  markFailure(account, kind /* 'busy' | 'quota' | 'error' */, upstreamModel) {
     const st = this._state(account.id);
     st.lastFailureAt = Date.now();
     st.consecutiveFails++;
     const policy = this.cfg.get('health_policy', { cooldownBaseSec: 60, quotaLatchSec: 0 });
     if (kind === 'quota') {
-      // 配额错误：长闩锁（默认 30 分钟），靠半开探测恢复——修复 aigw 无自愈的缺陷
+      // 配额错误：模型级长闩锁（默认 30 分钟），靠半开探测恢复——只熔断出错的模型，不判死整个账号
+      // （实证：闲鱼 glm-5.2 大请求 402 而 glm-5.3 可用，账号级闩锁会误杀好模型）
+      const mst = this._mstate(account.id, upstreamModel);
       const latchMs = (policy.quotaLatchSec ?? 1800) * 1000;
-      st.health = 'unavailable'; st.cooldownUntil = Date.now() + latchMs;
-      this._persistHealth(account.id, st);
-      this._notifyQuota(account);
+      mst.health = 'unavailable'; mst.cooldownUntil = Date.now() + latchMs;
+      this._notifyQuota(account, upstreamModel);
     } else if (kind === 'busy') {
-      const backoff = Math.min((policy.cooldownBaseSec ?? 60) * Math.pow(2, Math.min(st.consecutiveFails - 1, 5)), 3600);
-      st.health = 'cooldown'; st.cooldownUntil = Date.now() + backoff * 1000;
-      this._persistHealth(account.id, st);
+      // 限流：模型级指数退避（同账号其他模型不受影响）
+      const mst = this._mstate(account.id, upstreamModel);
+      mst.consecutiveFails++;
+      const backoff = Math.min((policy.cooldownBaseSec ?? 60) * Math.pow(2, Math.min(mst.consecutiveFails - 1, 5)), 3600);
+      mst.health = 'cooldown'; mst.cooldownUntil = Date.now() + backoff * 1000;
     } else if (st.consecutiveFails >= (policy.errorFails ?? 3)) {
+      // 网络/服务端错误仍是账号级：整个账号短冷却
       st.health = 'unavailable'; st.cooldownUntil = Date.now() + (policy.cooldownBaseSec ?? 60) * 1000;
       this._persistHealth(account.id, st);
     }
   }
 
-  markSuccess(account) {
+  markSuccess(account, upstreamModel) {
     const st = this._state(account.id);
     st.consecutiveFails = 0; st.health = 'available'; st.cooldownUntil = null;
+    if (upstreamModel) {
+      const mst = this._mstate(account.id, upstreamModel);
+      mst.consecutiveFails = 0; mst.health = 'available'; mst.cooldownUntil = null;
+    }
     this.db.prepare("UPDATE upstream_accounts SET health_status='available', health_checked_at=?, cooldown_until=NULL, last_verified_at=? WHERE id=?")
       .run(new Date().toISOString(), new Date().toISOString(), account.id);
     // 恢复通知（同一账号同一天只发一次异常通知，恢复也提示）
@@ -150,11 +173,12 @@ class Engine {
       .run(st.health, new Date().toISOString(), st.cooldownUntil ? new Date(st.cooldownUntil).toISOString() : null, id);
   }
 
-  async _notifyQuota(account) {
+  async _notifyQuota(account, upstreamModel) {
     const today = new Date().toISOString().slice(0, 10);
-    if (this._notified.get(account.id) === today) return;
-    this._notified.set(account.id, today);
-    await this.notify(`ssgw：上游账号 ${account.name} 配额/余额异常`, `账号已被熔断，进入半开探测队列；若上游确已欠费需要人工充值。`, 'high', 'warning,robot');
+    const dedupKey = account.id + '::' + (upstreamModel || '');
+    if (this._notified.get(dedupKey) === today) return;
+    this._notified.set(dedupKey, today);
+    await this.notify(`ssgw：上游账号 ${account.name} 模型 ${upstreamModel || '(默认)'} 配额/余额异常`, `该模型已被熔断（模型级，不影响同账号其他模型），进入半开探测队列；若上游确已欠费需要人工充值。`, 'high', 'warning,robot');
   }
 
   // 半开探测：冷却到期的 unavailable 账号用接近真实体积的请求试探。
@@ -163,6 +187,35 @@ class Engine {
   static PROBE_TEXT = 'quantum computing post-quantum cryptography analysis. '.repeat(600) + '请总结上述内容。';
 
   async _halfOpenSweep() {
+    // 模型级闩锁的半开探测：对每个 (账号, 模型) 闩锁，冷却到期后用该模型的映射逐个试探。
+    // 一个模型探测失败只续它的闩锁；同账号其他模型照常路由（quota 闩锁不再判死整个账号）
+    for (const [mkey, mst] of this.modelState) {
+      if (mst.health !== 'unavailable') continue;
+      if (!mst.cooldownUntil || Date.now() < mst.cooldownUntil) continue;
+      const sep = mkey.indexOf('::');
+      const accountId = Number(mkey.slice(0, sep));
+      const upstreamModel = mkey.slice(sep + 2);
+      const account = this.db.prepare('SELECT * FROM upstream_accounts WHERE id=? AND enabled=1').get(accountId);
+      if (!account) continue;
+      const ast = this._state(account.id);
+      if (ast.health === 'unavailable') continue; // 账号级闩锁走下方账号探测路径
+      const cred = this.cred.open(this.credKey, account.credential_envelope);
+      if (!cred) continue;
+      try {
+        const url = joinUrl(account.service_base_url, this._route(account), '/chat/completions');
+        const r = await postJson({
+          url, headers: buildHeaders(account, cred),
+          body: { model: upstreamModel, messages: [{ role: 'user', content: Engine.PROBE_TEXT }], max_tokens: 4 },
+          timeoutMs: 60000,
+        });
+        if (r.status === 200) { this.markSuccess(account, upstreamModel); this.log(`模型级半开探测成功 ${account.name} ${upstreamModel}`); }
+        else { this.markFailure(account, isQuotaError(r.status, r.text) ? 'quota' : 'error', upstreamModel); this.log(`模型级半开探测失败 ${account.name} ${upstreamModel} ${r.status}`); }
+      } catch (e) {
+        this.markFailure(account, 'error', upstreamModel);
+        this.log(`模型级半开探测异常 ${account.name} ${upstreamModel} ${e.message}`);
+      }
+    }
+    // 账号级探测（网络/服务端错误导致的账号熔断 + unknown 初始态）
     const rows = this.db.prepare("SELECT * FROM upstream_accounts WHERE enabled=1").all();
     for (const account of rows) {
       const st = this._state(account.id);
@@ -183,7 +236,7 @@ class Engine {
           body: { model: upstreamModel, messages: [{ role: 'user', content: Engine.PROBE_TEXT }], max_tokens: 4 },
           timeoutMs: 60000,
         });
-        if (r.status === 200) { this.markSuccess(account); this.log(`半开探测成功（真实体积） ${account.name}`); }
+        if (r.status === 200) { this.markSuccess(account, account.upstream_model_name); this.log(`半开探测成功（真实体积） ${account.name}`); }
         else { this.markFailure(account, isQuotaError(r.status, r.text) ? 'quota' : 'error'); this.log(`半开探测失败 ${account.name} ${r.status}`); }
       } catch (e) {
         this.markFailure(account, 'error');
@@ -302,27 +355,39 @@ class Engine {
     //    ① 规则命中（含图/简单/复杂/关键词/长上下文…）→ 规则目标模型
     //    ② 全部未命中 → 该模型的 default_model
     //    ③ 未配 default_model → 按该模型自身上游账号优先级降级
-    //    ④ 目标模型全链失败（429/熔断）→ 失败分流：按 simple/complex 分类改走 fallback_simple/fallback_complex
+    //    ④ 智能目标（规则/default）全链失败 → 先回落请求模型自身的普通账号优先级链（"在普通优先级基础上加规则"）
+    //    ⑤ 回落链也失败 → 失败分流：按 simple/complex 分类改走 fallback_simple/fallback_complex
     //    所有模型（含 auto）统一走模型级规则集；拒答链（设置页全局默认 + 模型级覆盖）在响应阶段处理
     let targetModel = origModel;
     let decision = null;
+    let smartChain = null;   // 智能路由选出的目标链（区别于请求模型自身链），失败时回落普通优先级
     if (this._modelSmartRouteOn(origModel)) {
       const hit = await this._evalRouteRules(body, origModel);
-      if (hit) { targetModel = hit.model; decision = { label: hit.label, confidence: hit.confidence ?? 0, source: 'rule:' + hit.rule, model: hit.model, smart: true }; }
-      else {
-        // 规则未命中的默认模型（该模型独享）：配置了则改走之，否则按该模型自身账号优先级降级
-        const defModel = (this._modelRules()[origModel] || {}).default_model;
-        if (defModel) { targetModel = defModel; decision = { label: 'default', confidence: 1, source: 'rule:default', model: defModel, smart: true }; }
+      if (hit) {
+        smartChain = hit.chain || [hit.model];
+        targetModel = smartChain[0];
+        decision = { label: hit.label, confidence: hit.confidence ?? 0, source: 'rule:' + hit.rule, model: hit.model, chain: smartChain, smart: true };
+      } else {
+        // 规则未命中的默认链（该模型独享，支持逗号分隔多模型）：配置了则改走之，
+        // 否则按该模型自身账号优先级降级（普通优先级）
+        const defChain = this._targetChain((this._modelRules()[origModel] || {}).default_model).filter(m => this.accountsForModel(m).length);
+        if (defChain.length) { smartChain = defChain; targetModel = defChain[0]; decision = { label: 'default', confidence: 1, source: 'rule:default', model: defChain[0], chain: defChain, smart: true }; }
       }
     }
     const hasImg = Engine.hasImage(body);
     if (hasImg) {
-      // 视觉模型（routing.vision_model）：当前输入带图且目标模型不吃图时改走它
+      // 视觉模型（routing.vision_model）：当前输入带图且链上所有目标都不吃图时改走它
       const vision = this.cfg.get('routing', {}).vision_model;
+      const visChain = smartChain ? smartChain.filter(m => this._modelSupportsVision(m)) : null;
+      if (smartChain && visChain && visChain.length && visChain.length < smartChain.length) {
+        // 链上有不吃图的目标：只保留能吃图的（has_image 规则目标已在上游过滤过，这里兜底）
+        smartChain = visChain; targetModel = visChain[0];
+      }
       const accounts = this.accountsForModel(targetModel);
       const supportsVision = accounts.some(a => a.upstream_model_name);
       if (vision && (accounts.length === 0 || !this._modelSupportsVision(targetModel))) {
         targetModel = vision;
+        smartChain = null;   // vision 改写后不再按智能链回落（请求模型链对带图输入同样要改写）
         decision = decision || {};
         decision.visionRewrite = true;
       }
@@ -355,6 +420,7 @@ class Engine {
         }
         for (const account of accounts) {
         const st = this._state(account.id);
+        const mst = this._mstate(account.id, account.upstream_model_name);
         // 账号并发满：先等槽位（performance.account_concurrency_wait_ms，默认 30s，0=不等待），
         // 而不是立即跳过导致 no_available_upstream 秒败——闲鱼上限 2，ZCode 并行工具调用常 3+。
         // 必须放在 _available 之前：_available 对并发满返回 false，先查会直接 continue 跳过本账号
@@ -362,7 +428,7 @@ class Engine {
           const waitMs = Number(this.cfg.get('performance', {}).account_concurrency_wait_ms ?? 30000);
           if (waitMs > 0) await this._waitAccountSlot(st, account.max_concurrency, waitMs);
         }
-        if (!this._available(st, account)) continue;
+        if (!this._available(st, account, mst)) continue;
         const credential = this.cred.open(this.credKey, account.credential_envelope);
         if (!credential) { this.markFailure(account, 'error'); continue; }
         // 频率闸：按最小间隔放行，超上游 rate limit 的请求在网关内排队而非撞 429 熔断
@@ -387,19 +453,19 @@ class Engine {
               if (this.cfg.get('routing', {}).refusal_retry) {
                 const smart = await this._smartStream(r, body, upstreamBody, account, headers, url, origModel, converter);
                 if (!smart) continue;   // 空响应/上游流异常：不记成功，交给下一账号或失败分流
-                this.markSuccess(account);
+                this.markSuccess(account, account.upstream_model_name);
                 onLog && onLog({ account, model, upstreamModel: account.upstream_model_name, status: 200, decision: { ...decision, ...decisionExtra } });
                 return smart;
               }
-              this.markSuccess(account);
+              this.markSuccess(account, account.upstream_model_name);
               onLog && onLog({ account, model, upstreamModel: account.upstream_model_name, status: 200, decision: { ...decision, ...decisionExtra } });
               return { ok: true, result: { kind: 'stream', res: r.res, abort: r.abort, upstreamModel: account.upstream_model_name, protocol, converter } };
             }
             const errText = await r.res.text().catch(() => '');
             r.abort?.();
             le = { status: r.status, text: errText };
-            if (isQuotaError(r.status, errText)) { this.markFailure(account, 'quota'); continue; }
-            if (isBusyError(r.status, errText)) { this.markFailure(account, 'busy'); continue; }
+            if (isQuotaError(r.status, errText)) { this.markFailure(account, 'quota', account.upstream_model_name); continue; }
+            if (isBusyError(r.status, errText)) { this.markFailure(account, 'busy', account.upstream_model_name); continue; }
             if (r.status >= 500) this.markFailure(account, 'error');
             continue; // 4xx 客户端类错误：跳过该账号但不熔断（模型能力/请求问题，非上游故障）
           } else {
@@ -418,7 +484,7 @@ class Engine {
                 le = { status: 502, text: 'upstream_empty_completion' };
                 continue;
               }
-              this.markSuccess(account);
+              this.markSuccess(account, account.upstream_model_name);
               onLog && onLog({ account, model, upstreamModel: account.upstream_model_name, status: 200, durationMs: r.durationMs, decision: { ...decision, ...decisionExtra }, usage: json?.usage });
               // 拒答检测与本地重试
               if (this.cfg.get('routing', {}).refusal_retry && looksLikeRefusal(content, choice?.message?.refusal)) {
@@ -428,8 +494,8 @@ class Engine {
               return { ok: true, result: { kind: 'json', json, upstreamModel: account.upstream_model_name, accountId: account.id, accountName: account.name } };
             }
             le = { status: r.status, text: r.text };
-            if (isQuotaError(r.status, r.text)) { this.markFailure(account, 'quota'); continue; }
-            if (isBusyError(r.status, r.text)) { this.markFailure(account, 'busy'); continue; }
+            if (isQuotaError(r.status, r.text)) { this.markFailure(account, 'quota', account.upstream_model_name); continue; }
+            if (isBusyError(r.status, r.text)) { this.markFailure(account, 'busy', account.upstream_model_name); continue; }
             if (r.status >= 500) this.markFailure(account, 'error');
             continue; // 4xx 客户端错误：跳过但不熔断
           }
@@ -442,12 +508,26 @@ class Engine {
       return { ok: false, err: le };   // 该链全失败，返回最后的错误供调用方决定是否走失败分流
     };
 
-    const first = await tryChain([targetModel]);
+    // 首选链：智能路由链（规则/default，多模型依次尝试）或请求模型自身普通优先级链
+    const firstChain = smartChain && smartChain.length ? smartChain : [targetModel];
+    const first = await tryChain(firstChain);
     if (first.ok) return first.result;
     let lastErr = first.err;
 
+    // 回落普通优先级链：智能路由目标链全链失败时，不直接报错，
+    // 先回落到请求模型自身的上游账号优先级链（与未配智能路由时完全一致的行为），
+    // 再考虑失败分流——规则是在普通优先级之上的"额外"偏好，而不是替代。
+    // origModel 就是智能链首选时（如 default_model=auto 自身）不重复回落
+    if (lastErr && smartChain && !smartChain.includes(origModel) && this.accountsForModel(origModel).length) {
+      this.log(`智能链 [${smartChain.join(',')}] 全链失败（${lastErr.status}），回落请求模型 ${origModel} 普通优先级链`);
+      const fbDecision = { label: 'fallback_orig', confidence: 1, source: 'smart_chain_failed:' + lastErr.status, model: origModel, smart: true };
+      const r = await tryChain([origModel], { fallback: fbDecision });
+      if (r.ok) return r.result;
+      lastErr = r.err;
+    }
+
     // 失败分流：仅配置了 fallback_simple/complex 的模型（如 auto）全链失败时，
-    // 按请求分类改走简单/复杂分流模型（如 auto 全挂：简单→DeepSeek-V3.2，复杂→deepseek-v4-flash）。
+    // 按请求分类改走简单/复杂分流模型（支持逗号分隔多模型链）。
     // 无全局降级链：显式指定的模型（glm-5.3、DeepSeek-V3.2…）全链失败直接报错，不偷偷换模型
     if (lastErr) {
       const mr = this._modelRules()[origModel] || {};
@@ -455,11 +535,12 @@ class Engine {
         let label = 'complex';
         try { label = (await this.classifyRequest(Engine.extractUserText(body))).label; } catch {}
         const fbModel = label === 'simple' ? mr.fallback_simple : mr.fallback_complex;
-        const fbTarget = fbModel && this.accountsForModel(fbModel).length ? fbModel : (mr.fallback_simple || mr.fallback_complex);
-        if (fbTarget && this.accountsForModel(fbTarget).length) {
-          this.log(`模型 ${origModel} 全链失败（${lastErr.status}），失败分流[${label}] → ${fbTarget}`);
-          const fbDecision = { label: 'fallback_' + label, confidence: 1, source: 'failure:' + lastErr.status, model: fbTarget, smart: true };
-          const r = await tryChain([fbTarget], { fallback: fbDecision });
+        let fbChain = this._targetChain(fbModel).filter(m => this.accountsForModel(m).length);
+        if (!fbChain.length) fbChain = this._targetChain(mr.fallback_simple || mr.fallback_complex).filter(m => this.accountsForModel(m).length);
+        if (fbChain.length) {
+          this.log(`模型 ${origModel} 全链失败（${lastErr.status}），失败分流[${label}] → ${fbChain.join(',')}`);
+          const fbDecision = { label: 'fallback_' + label, confidence: 1, source: 'failure:' + lastErr.status, model: fbChain[0], chain: fbChain, smart: true };
+          const r = await tryChain(fbChain, { fallback: fbDecision });
           if (r.ok) return r.result;   // 分流链成功
           lastErr = r.err;
         }
@@ -549,7 +630,7 @@ class Engine {
         const fb = jev.fallbackModel;
         const fbHealthy = fb && this.accountsForModel(fb).some(a => {
           const st = this._state(a.id);
-          return this._available(st, a);
+          return this._available(st, a, this._mstate(a.id, a.upstream_model_name));
         });
         if (fb && this.accountsForModel(fb).length) {
           if (fbHealthy) {
@@ -566,6 +647,12 @@ class Engine {
       this.log(`JEV 分类异常: ${e.message}`);
       return null;
     }
+  }
+
+  // 目标解析：支持逗号分隔的多模型链（如 "deepseek-v4.1-flash,deepseek-v4-flash"），
+  // 按顺序依次尝试；单模型名与旧格式完全兼容
+  _targetChain(target) {
+    return String(target || '').split(/[,，]/).map(s => s.trim()).filter(Boolean);
   }
 
   async _evalRouteRules(body, scopeModel) {
@@ -605,14 +692,17 @@ class Engine {
           hit = est >= Number(r.value || 0);
         }
       } catch { hit = false; }
-      // 命中后必须存在能服务 target 的账号，否则继续尝试下一条（软匹配）
-      if (hit && this.accountsForModel(r.target).length) {
+      // 命中后按链过滤：多目标（逗号分隔）里至少一个有账号能服务，否则继续下一条规则（软匹配）
+      if (hit) {
+        const chain = this._targetChain(r.target).filter(m => this.accountsForModel(m).length);
+        if (!chain.length) continue;
         // has_image 规则的目标还必须真的能吃图（是 VLM），否则上游会 400 拒收
-        if (r.type === 'has_image' && !this._modelSupportsVision(r.target)) {
-          this.log(`规则 ${label} 命中但目标 ${r.target} 非视觉模型，跳过`);
-          continue;
+        if (r.type === 'has_image') {
+          const vis = chain.filter(m => this._modelSupportsVision(m));
+          if (!vis.length) { this.log(`规则 ${label} 命中但目标 ${r.target} 均非视觉模型，跳过`); continue; }
+          chain.length = 0; chain.push(...vis);
         }
-        return { model: r.target, rule: label, label: r.type, confidence: cls?.confidence ?? 1 };
+        return { chain, model: chain[0], rule: label, label: r.type, confidence: cls?.confidence ?? 1 };
       }
     }
     return null;
@@ -1031,12 +1121,20 @@ class Engine {
     return null;
   }
 
-  // 用指定模型重发当前请求（拒答规则/本地重试共用）
+  // 用指定模型重发当前请求（拒答规则/本地重试共用）；model 支持逗号分隔多模型链，按序尝试
   async _retryWithModel(body, model, tag) {
+    for (const m of this._targetChain(model)) {
+      const r = await this._retryWithSingleModel(body, m, tag);
+      if (r) return r;
+    }
+    return null;
+  }
+
+  async _retryWithSingleModel(body, model, tag) {
     const accounts = this.accountsForModel(model);
     for (const la of accounts) {
       const st = this._state(la.id);
-      if (!this._available(st, la)) continue;
+      if (!this._available(st, la, this._mstate(la.id, la.upstream_model_name))) continue;
       const cred = this.cred.open(this.credKey, la.credential_envelope);
       if (!cred) continue;
       try {
@@ -1098,7 +1196,7 @@ class Engine {
     const accounts = this.accountsForModel(model);
     for (const account of accounts) {
       const st = this._state(account.id);
-      if (!this._available(st, account)) continue;
+      if (!this._available(st, account, this._mstate(account.id, account.upstream_model_name))) continue;
       const credential = this.cred.open(this.credKey, account.credential_envelope);
       if (!credential) continue;
       st.inflight++;
@@ -1108,9 +1206,9 @@ class Engine {
           headers: buildHeaders(account, credential),
           body: { ...body, model: account.upstream_model_name || model },
         });
-        if (r.status === 200) { this.markSuccess(account); onLog?.({ account, model, status: 200 }); return r.json; }
-        if (isQuotaError(r.status, r.text)) { this.markFailure(account, 'quota'); continue; }
-        if (isBusyError(r.status, r.text)) { this.markFailure(account, 'busy'); continue; }
+        if (r.status === 200) { this.markSuccess(account, account.upstream_model_name); onLog?.({ account, model, status: 200 }); return r.json; }
+        if (isQuotaError(r.status, r.text)) { this.markFailure(account, 'quota', account.upstream_model_name); continue; }
+        if (isBusyError(r.status, r.text)) { this.markFailure(account, 'busy', account.upstream_model_name); continue; }
         if (r.status >= 500) this.markFailure(account, 'error');
       } catch { this.markFailure(account, 'error'); }
       finally { st.inflight--; }
@@ -1124,7 +1222,7 @@ class Engine {
     const accounts = this.accountsForModel(model);
     for (const account of accounts) {
       const st = this._state(account.id);
-      if (!this._available(st, account)) continue;
+      if (!this._available(st, account, this._mstate(account.id, account.upstream_model_name))) continue;
       const credential = this.cred.open(this.credKey, account.credential_envelope);
       if (!credential) continue;
       st.inflight++;
@@ -1135,9 +1233,9 @@ class Engine {
           body: { ...body, model: account.upstream_model_name || model },
           timeoutMs: 300000,
         });
-        if (r.status === 200) { this.markSuccess(account); onLog?.({ account, model, status: 200 }); return r.json; }
-        if (isQuotaError(r.status, r.text)) { this.markFailure(account, 'quota'); continue; }
-        if (isBusyError(r.status, r.text)) { this.markFailure(account, 'busy'); continue; }
+        if (r.status === 200) { this.markSuccess(account, account.upstream_model_name); onLog?.({ account, model, status: 200 }); return r.json; }
+        if (isQuotaError(r.status, r.text)) { this.markFailure(account, 'quota', account.upstream_model_name); continue; }
+        if (isBusyError(r.status, r.text)) { this.markFailure(account, 'busy', account.upstream_model_name); continue; }
         if (r.status >= 500) this.markFailure(account, 'error');
       } catch { this.markFailure(account, 'error'); }
       finally { st.inflight--; }
@@ -1158,7 +1256,7 @@ class Engine {
       const accounts = this.accountsForModel(target);
       for (const account of accounts) {
         const st = this._state(account.id);
-        if (!this._available(st, account)) continue;
+        if (!this._available(st, account, this._mstate(account.id, account.upstream_model_name))) continue;
         const credential = this.cred.open(this.credKey, account.credential_envelope);
         if (!credential) continue;
         st.inflight++;
@@ -1169,9 +1267,9 @@ class Engine {
             body: { ...body, model: account.upstream_model_name || target },
             timeoutMs: 60000,
           });
-          if (r.status === 200) { this.markSuccess(account); onLog?.({ account, model: target, status: 200, kind: 'native' }); return r.json; }
-          if (isQuotaError(r.status, r.text)) { this.markFailure(account, 'quota'); continue; }
-          if (isBusyError(r.status, r.text)) { this.markFailure(account, 'busy'); continue; }
+          if (r.status === 200) { this.markSuccess(account, account.upstream_model_name); onLog?.({ account, model: target, status: 200, kind: 'native' }); return r.json; }
+          if (isQuotaError(r.status, r.text)) { this.markFailure(account, 'quota', account.upstream_model_name); continue; }
+          if (isBusyError(r.status, r.text)) { this.markFailure(account, 'busy', account.upstream_model_name); continue; }
           if (r.status >= 500) this.markFailure(account, 'error');
         } catch { this.markFailure(account, 'error'); }
         finally { st.inflight--; }

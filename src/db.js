@@ -55,8 +55,8 @@ const TABLES = {
   upstream_account_models: `CREATE TABLE IF NOT EXISTS upstream_account_models (
     id BIGSERIAL PRIMARY KEY, account_id BIGINT NOT NULL,
     request_model_name TEXT NOT NULL, upstream_model_name TEXT NOT NULL,
-    model_type TEXT NOT NULL DEFAULT '',
-    UNIQUE (account_id, request_model_name))`,
+    model_type TEXT NOT NULL DEFAULT '', priority INTEGER,
+    UNIQUE (account_id, request_model_name, upstream_model_name))`,
   model_groups: `CREATE TABLE IF NOT EXISTS model_groups (
     id BIGSERIAL PRIMARY KEY, name TEXT NOT NULL UNIQUE,
     protocol_type TEXT NOT NULL DEFAULT 'text', note TEXT NOT NULL DEFAULT '',

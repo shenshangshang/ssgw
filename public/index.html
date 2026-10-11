@@ -651,7 +651,7 @@ async function editAccount(id) {
         <button type="button" onclick="discoverModels(${id || 0})">发现模型</button>
       </div>
       <div id="f_model_rows" style="border:1px solid var(--border);border-radius:6px;max-height:340px;overflow-y:auto">
-        <table style="margin:0"><thead><tr><th>请求名</th><th>上游名</th><th style="width:90px">优先级</th><th style="width:110px">模型类型</th><th style="width:50px"></th></tr></thead>
+        <table style="margin:0"><thead><tr><th>请求名</th><th>上游名</th><th style="width:110px">模型类型</th><th style="width:50px"></th></tr></thead>
         <tbody id="f_model_tbody"></tbody></table>
       </div>
       <div class="hint">类别留空 = 按模型名自动判定（含 embed/rerank/flux 等关键词走对应端点）；显式指定优先。「发现模型」从上游 /models 拉取并自动按名称预填类别。</div></label>
@@ -672,7 +672,6 @@ async function editAccount(id) {
     tr.innerHTML = `
       <td><input class="mr_req" value="${esc(m.request_model_name)}" style="min-width:180px"></td>
       <td><input class="mr_up" value="${esc(m.upstream_model_name)}" style="min-width:180px"></td>
-      <td><input class="mr_prio" type="number" value="${m.priority ?? ''}" placeholder="默认" title="越大越优先；留空=跟随账号优先级" style="width:80px"></td>
       <td><select class="mr_type">${KIND_OPTS.map(([k, n]) => `<option value="${k}" ${type === k ? 'selected' : ''}>${n}</option>`).join('')}</select></td>
       <td><button type="button" class="link danger" onclick="this.closest('tr').remove()">✕</button></td>`;
     tr.dataset.autoKind = kindOf(m);
@@ -685,7 +684,6 @@ function acModelRow(requestName, upstreamName, type) {
   tr.innerHTML = `
     <td><input class="mr_req" value="${esc(requestName)}" style="min-width:180px"></td>
     <td><input class="mr_up" value="${esc(upstreamName)}" style="min-width:180px"></td>
-    <td><input class="mr_prio" type="number" placeholder="默认" title="越大越优先；留空=跟随账号优先级" style="width:80px"></td>
     <td><select class="mr_type">${KIND_OPTS.map(([k, n]) => `<option value="${k}" ${type === k ? 'selected' : ''}>${n}</option>`).join('')}</select></td>
     <td><button type="button" class="link danger" onclick="this.closest('tr').remove()">✕</button></td>`;
   $('#f_model_tbody').appendChild(tr);
@@ -725,7 +723,6 @@ async function saveAccount(id) {
     requestModelName: tr.querySelector('.mr_req').value.trim(),
     upstreamModelName: tr.querySelector('.mr_up').value.trim() || tr.querySelector('.mr_req').value.trim(),
     modelType: tr.querySelector('.mr_type').value,
-    priority: (tr.querySelector('.mr_prio')?.value ?? '').trim() === '' ? null : Number(tr.querySelector('.mr_prio').value),
   })).filter(m => m.requestModelName);
   const provSel = $('#f_provider').value;
   const provider = provSel === 'custom'
@@ -803,7 +800,6 @@ function mpRow(mp = {}) {
   return `<tr>
     <td><select class="mp_acct">${accts.map(a => `<option value="${a.id}" ${String(mp.accountId) === String(a.id) ? 'selected' : ''}>${esc(a.name)}（P${a.priority}）</option>`).join('')}</select></td>
     <td><input class="mp_up" value="${esc(mp.upstreamModel || '')}" placeholder="上游模型名（可点发现）"></td>
-    <td><input class="mp_prio" type="number" value="${mp.priority ?? ''}" placeholder="默认" title="越大越优先；留空=跟随账号优先级" style="width:80px"></td>
     <td><select class="mp_type">${['text', 'embedding', 'image', 'rerank'].map(t => `<option value="${t}" ${mp.modelType === t ? 'selected' : ''}>${({ text: '文本', embedding: '向量', image: '生图', rerank: '重排' })[t]}</option>`).join('')}</select></td>
     <td><button class="link danger" onclick="this.closest('tr').remove()">✕</button></td>
   </tr>`;
@@ -822,7 +818,6 @@ async function discoverInto(btn) {
       accountId: tr.querySelector('.mp_acct').value,
       upstreamModel: tr.querySelector('.mp_up').value,
       modelType: tr.querySelector('.mp_type').value,
-      priority: (tr.querySelector('.mp_prio')?.value ?? '').trim() === '' ? null : Number(tr.querySelector('.mp_prio').value),
     })),
   };
   const row = rows[rows.length - 1];
@@ -859,7 +854,7 @@ function restoreModelDraft(target) {
     <label class="field"><span><b>*</b>模型名（对外提供的请求模型名）</span><input id="md_name" value="${esc(d.name)}" placeholder="如 glm-5.2 或 my-model"></label>
     <label class="field"><span>上游映射（哪些账号以什么上游模型名提供它）</span>
       <div style="border:1px solid var(--border);border-radius:6px;max-height:300px;overflow-y:auto">
-        <table style="margin:0"><thead><tr><th>账号</th><th>上游模型</th><th style="width:80px">优先级</th><th>类别</th><th></th></tr></thead>
+        <table style="margin:0"><thead><tr><th>账号</th><th>上游模型</th><th>类别</th><th></th></tr></thead>
         <tbody id="mp_body">${mappings.map(mpRow).join('')}</tbody></table>
       </div>
       <div style="margin-top:8px;display:flex;gap:8px"><button onclick="addMpRow()">+ 添加映射</button><button onclick="discoverInto(this)">发现上游模型</button></div>
@@ -874,7 +869,7 @@ function pickDiscovered(name) {
 async function editModel(name) {
   const m = name ? window._allModels.find(x => x.name === name) : null;
   const isVirtual = !!m?.virtual;
-  const mappings = m ? m.upstreams.map(u => ({ accountId: u.accountId, upstreamModel: u.upstreamModel, modelType: u.modelType, priority: u.modelPriority })) : [{}];
+  const mappings = m ? m.upstreams.map(u => ({ accountId: u.accountId, upstreamModel: u.upstreamModel, modelType: u.modelType })) : [{}];
   openDrawer(drawer((m ? '编辑模型 · ' : '新建模型') + (name || ''), `
     <label class="field"><span><b>*</b>模型名（对外提供的请求模型名）</span><input id="md_name" value="${esc(name || '')}" ${m ? '' : 'placeholder="如 auto、glm-5.2 或 my-model"'}></label>
     <label class="field"><span>虚拟模型（仅路由入口，无上游映射；如 auto / auto-vision）</span>
@@ -882,7 +877,7 @@ async function editModel(name) {
       <div class="hint">开启后不配置上游映射，请求完全交给智能路由规则与「默认使用模型」分发；需要真实上游时关闭</div></label>
     <label class="field" id="md_mappings_wrap" style="${isVirtual ? 'display:none' : ''}"><span>上游映射（哪些账号以什么上游模型名提供它）</span>
       <div style="border:1px solid var(--border);border-radius:6px;max-height:300px;overflow-y:auto">
-        <table style="margin:0"><thead><tr><th>账号</th><th>上游模型</th><th style="width:80px">优先级</th><th>类别</th><th></th></tr></thead>
+        <table style="margin:0"><thead><tr><th>账号</th><th>上游模型</th><th>类别</th><th></th></tr></thead>
         <tbody id="mp_body">${mappings.map(mpRow).join('')}</tbody></table>
       </div>
       <div style="margin-top:8px;display:flex;gap:8px"><button onclick="addMpRow()">+ 添加映射</button><button onclick="discoverInto(this)">发现上游模型</button></div>
@@ -906,7 +901,6 @@ async function saveModel(origName) {
       accountId: Number(tr.querySelector('.mp_acct').value),
       upstreamModel: tr.querySelector('.mp_up').value.trim(),
       modelType: tr.querySelector('.mp_type').value,
-      priority: (tr.querySelector('.mp_prio')?.value ?? '').trim() === '' ? null : Number(tr.querySelector('.mp_prio').value),
     })).filter(mp => mp.upstreamModel);
     if (!mappings.length) { toast('至少一条上游映射（或勾选虚拟模型）', 'err'); return; }
     if (origName) await api('PUT', '/admin/models/' + encodeURIComponent(origName), { name, mappings });
@@ -923,16 +917,17 @@ async function editModelRules(name) {
     <label class="field"><span>智能路由</span>
       <label class="switch" style="vertical-align:middle"><input type="checkbox" id="mc_on" ${m.smartRoute ? 'checked' : ''}><span class="slider"></span></label>
       <div class="hint">开启后该模型的请求按下方规则匹配（该模型独享）；未命中按账号优先级降级</div></label>
-    <label class="field"><span>默认使用模型（规则全部未命中时）</span>
-      <select id="mc_default"><option value="">— 未设置：按该模型自身账号优先级降级 —</option>
-        ${others.map(n => `<option value="${esc(n)}" ${m.defaultModel === n ? 'selected' : ''}>${esc(n)}</option>`).join('')}</select>
-      <div class="hint">配置后规则未命中时直接改走该模型；留空则回到本模型的账号优先级降级</div></label>
-    <label class="field"><span>失败分流（目标模型全链失败 / 429 / 熔断时，按请求分类改走）</span>
+    <label class="field"><span>默认使用模型（规则全部未命中时，支持逗号分隔多模型按序尝试）</span>
+      <input id="mc_default" list="mc_default_opts" placeholder="留空：按该模型自身账号优先级降级" value="${esc(m.defaultModel || '')}">
+      <datalist id="mc_default_opts">${others.map(n => `<option value="${esc(n)}">`).join('')}</datalist>
+      <div class="hint">规则未命中时按此链依次尝试（如 deepseek-v4.1-flash,glm-5.3）；留空则回到本模型的账号优先级降级</div></label>
+    <label class="field"><span>失败分流（目标模型全链失败 / 429 / 熔断时，按请求分类改走，支持逗号分隔多模型）</span>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
         <div><div class="muted" style="font-size:12px;margin-bottom:4px">简单请求分流到</div>
-          <select id="mc_fbs"><option value="">— 不分流 —</option>${others.map(n => `<option value="${esc(n)}" ${m.fallbackSimple === n ? 'selected' : ''}>${esc(n)}</option>`).join('')}</select></div>
+          <input id="mc_fbs" list="mc_fb_opts" placeholder="— 不分流 —" value="${esc(m.fallbackSimple || '')}"></div>
         <div><div class="muted" style="font-size:12px;margin-bottom:4px">复杂请求分流到</div>
-          <select id="mc_fbc"><option value="">— 不分流 —</option>${others.map(n => `<option value="${esc(n)}" ${m.fallbackComplex === n ? 'selected' : ''}>${esc(n)}</option>`).join('')}</select></div>
+          <input id="mc_fbc" list="mc_fb_opts" placeholder="— 不分流 —" value="${esc(m.fallbackComplex || '')}"></div>
+        <datalist id="mc_fb_opts">${others.map(n => `<option value="${esc(n)}">`).join('')}</datalist>
       </div>
       <div class="hint">主用模型（含默认模型）所有上游都失败时触发：向量分类为简单的请求改走「简单」目标，复杂请求改走「复杂」目标</div></label>
     <label class="field"><span>路由规则（按序匹配，命中第一条即改走目标模型；目标不可用则跳过）</span>
