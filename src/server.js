@@ -437,8 +437,17 @@ const server = http.createServer(async (req, res) => {
           const g = runGate(body.model, Array.isArray(body.input) ? body.input.filter(x => typeof x === 'string').join(' ') : String(body.input || ''), 'openaiEmbeddings', body);
           if (g) return sendJson(res, g.code, g.body);
         }
-        const json = await engine.embeddings({ body });
-        return sendJson(res, 200, json);
+        const startedAtMs = Date.now();
+        const t0 = Date.now();
+        try {
+          const json = await engine.embeddings({ body, onLog: ({ account, model, status }) => {
+            logCall({ requestId, startedAtMs, userId: keyRow.user_id, apiKeyId: keyRow.id, requestModel: body.model, upstreamAccountId: account?.id, upstreamModel: account?.upstream_model_name, resultKind: 1, upstreamStatus: status, durationMs: Date.now() - t0 });
+          } });
+          return sendJson(res, 200, json);
+        } catch (e) {
+          logCall({ requestId, startedAtMs, userId: keyRow.user_id, apiKeyId: keyRow.id, requestModel: body.model, resultKind: 4, upstreamStatus: e.statusCode || 502, errorCode: 'upstream_failed', durationMs: Date.now() - t0 });
+          return sendJson(res, e.statusCode || 502, { error: { message: e.message, type: 'upstream_error' } });
+        }
       }
 
       if (p === '/v1/rerank' && req.method === 'POST') {
@@ -447,8 +456,17 @@ const server = http.createServer(async (req, res) => {
           const g = runGate(body.model, String(body.query || ''), 'openaiRerank', body);
           if (g) return sendJson(res, g.code, g.body);
         }
-        const json = await engine.rerank({ body });
-        return sendJson(res, 200, json);
+        const startedAtMs = Date.now();
+        const t0 = Date.now();
+        try {
+          const json = await engine.rerank({ body, onLog: ({ account, model, status }) => {
+            logCall({ requestId, startedAtMs, userId: keyRow.user_id, apiKeyId: keyRow.id, requestModel: body.model, upstreamAccountId: account?.id, upstreamModel: account?.upstream_model_name, resultKind: 1, upstreamStatus: status, durationMs: Date.now() - t0 });
+          } });
+          return sendJson(res, 200, json);
+        } catch (e) {
+          logCall({ requestId, startedAtMs, userId: keyRow.user_id, apiKeyId: keyRow.id, requestModel: body.model, resultKind: 4, upstreamStatus: e.statusCode || 502, errorCode: 'upstream_failed', durationMs: Date.now() - t0 });
+          return sendJson(res, e.statusCode || 502, { error: { message: e.message, type: 'upstream_error' } });
+        }
       }
 
       if (p === '/v1/images/generations' && req.method === 'POST') {
@@ -457,8 +475,17 @@ const server = http.createServer(async (req, res) => {
           const g = runGate(body.model, String(body.prompt || ''), 'openaiImages', body);
           if (g) return sendJson(res, g.code, g.body);
         }
-        const json = await engine.images({ body });
-        return sendJson(res, 200, json);
+        const startedAtMs = Date.now();
+        const t0 = Date.now();
+        try {
+          const json = await engine.images({ body, onLog: ({ account, model, status }) => {
+            logCall({ requestId, startedAtMs, userId: keyRow.user_id, apiKeyId: keyRow.id, requestModel: body.model, upstreamAccountId: account?.id, upstreamModel: account?.upstream_model_name, resultKind: 1, upstreamStatus: status, durationMs: Date.now() - t0 });
+          } });
+          return sendJson(res, 200, json);
+        } catch (e) {
+          logCall({ requestId, startedAtMs, userId: keyRow.user_id, apiKeyId: keyRow.id, requestModel: body.model, resultKind: 4, upstreamStatus: e.statusCode || 502, errorCode: 'upstream_failed', durationMs: Date.now() - t0 });
+          return sendJson(res, e.statusCode || 502, { error: { message: e.message, type: 'upstream_error' } });
+        }
       }
 
       return sendJson(res, 404, { error: { message: 'unknown_endpoint', type: 'invalid_request_error' } });
