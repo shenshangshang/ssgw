@@ -586,8 +586,12 @@ class Api {
       return json(200, { ok: true });
     }
     if (req.method === 'PUT' && id) {
-      if (body.password) this.db.prepare('UPDATE users SET password_hash=?, must_change_password=?, updated_at=? WHERE id=?')
-        .run(this.cred.hashPassword(body.password, body.username || ''), body.mustChangePassword ? 1 : 0, t, id);
+      if (body.password) {
+        const target = this.db.prepare('SELECT username FROM users WHERE id=?').get(id);
+        if (!target) return json(404, { error: 'not_found' });
+        this.db.prepare('UPDATE users SET password_hash=?, must_change_password=?, updated_at=? WHERE id=?')
+          .run(this.cred.hashPassword(body.password, target.username), body.mustChangePassword ? 1 : 0, t, id);
+      }
       if (body.userGroupId !== undefined) this.db.prepare('UPDATE users SET user_group_id=?, updated_at=? WHERE id=?').run(body.userGroupId, t, id);
       if (body.disabled !== undefined) this.db.prepare('UPDATE users SET disabled=?, updated_at=? WHERE id=?').run(body.disabled ? 1 : 0, t, id);
       return json(200, { ok: true });

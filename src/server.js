@@ -167,6 +167,7 @@ const server = http.createServer(async (req, res) => {
       const body = await readBody(req, 1);
       const r = await api.login(body.username, body.password);
       if (!r) return sendJson(res, 401, { error: 'invalid_credentials' });
+      if (r.locked) return sendJson(res, 423, { error: 'account_locked' });
       res.setHeader('Set-Cookie', `ssgw_session=${r.token}; Path=/; HttpOnly; SameSite=Lax`);
       return sendJson(res, 200, r);
     }

@@ -1,7 +1,7 @@
 // 路由引擎：账号选择、健康熔断/半开恢复、降级链、智能分流、视觉改写、拒答重试
 'use strict';
 const crypto = require('node:crypto');
-const { postJson, postStream, buildHeaders, joinUrl } = require('./upstream');
+const { postJson, postStream, buildHeaders, joinUrl, STREAM_IDLE_MS } = require('./upstream');
 const { openaiToAnthropic, anthropicToOpenai, AnthropicStreamConverter } = require('./protocol');
 
 const BUSY_MARKERS = ['rate limit', 'rate_limit', 'too many requests', 'overloaded', 'busy', 'capacity', '429', '503'];
@@ -984,9 +984,21 @@ class Engine {
     let sawToolCall = false, sawReasoning = false, readErr = null;
     const chunks = [];
     let buf = '';
+    // 每块读空闲超时：上游中途卡死时 abort 并结束，避免永久占用连接与账号 inflight 槽位
+    const readWithIdle = () => {
+      let timer;
+      const timeout = new Promise((_, reject) => {
+        timer = setTimeout(() => {
+          try { r.abort?.(); } catch {}
+          reject(new Error('stream_idle_timeout'));
+        }, STREAM_IDLE_MS);
+        timer.unref?.();
+      });
+      return Promise.race([reader.read(), timeout]).finally(() => clearTimeout(timer));
+    };
     try {
       while (true) {
-        const { done, value } = await reader.read();
+        const { done, value } = await readWithIdle();
         if (done) break;
         const text = decoder.decode(value, { stream: true });
         chunks.push(text);
@@ -1025,7 +1037,7 @@ class Engine {
           if (replay) controller.enqueue(enc.encode(replay));
           try {
             while (true) {
-              const { done, value } = await reader.read();
+              const { done, value } = await readWithIdle();
               if (done) break;
               controller.enqueue(value);
               // 背压：客户端消费慢（desiredSize <= 0）时等待，避免上游持续推导致内存堆积
